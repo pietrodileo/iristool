@@ -1,0 +1,3 @@
+# Runtime dependencies; keep aligned with pyproject.toml.
+pandas>=2.2,<4
+intersystems-irispython>=5.2.1,<6

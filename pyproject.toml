@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iristool"
+version = "0.1.0"
+description = "Simple pandas and SQL helpers for InterSystems IRIS"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Pietro Di Leo"}]
+dependencies = ["pandas>=2.2,<4", "intersystems-irispython>=5.2.1,<6"]
+
+[project.urls]
+Homepage = "https://github.com/pietrodileo/iristool"
+Issues = "https://github.com/pietrodileo/iristool/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
