@@ -14,10 +14,11 @@ Python runs in your own environment and connects to an existing IRIS server thro
 
 ---
 
+
+
 ## Features
 
-<details>
-<summary>What iristool does</summary>
+What iristool does
 
 - **DataFrame to SQL:** create a table, infer column types, and insert rows in batches.
 - **SQL to DataFrame:** retrieve query results with optional bound parameters.
@@ -30,9 +31,9 @@ Optional [dataset integrations](#dataset-integrations) download Kaggle and Huggi
 
 The library handles the IRIS part of a data workflow. Read a CSV with pandas, download data with another library, or construct a DataFrame yourself, then pass it to `df_to_table()`.
 
-</details>
-
 ## Installation
+
+
 
 ### Requirements
 
@@ -40,41 +41,114 @@ The library handles the IRIS part of a data workflow. Read a CSV with pandas, do
 - A reachable **InterSystems IRIS 2022.1 or newer** server supporting the Python DB API.
 - An IRIS account with SQL permissions for the operations you need.
 
+
+
 ### With pip
 
 ```bash
 python -m pip install iristool
 ```
 
+
+
 ### With uv
 
-In your own uv project:
+**Standalone environment (no** `pyproject.toml` **required)**
+
+To install from PyPI in a folder used for testing or scripts:
+
+```bash
+uv venv
+source .venv/bin/activate
+uv pip install iristool
+# Or install the core plus both dataset sources:
+# uv pip install 'iristool[integrations]>=0.3.0'
+```
+
+**Application project (with** `pyproject.toml`**)**
+
+In a separate uv project that depends on iristool:
 
 ```bash
 uv add iristool
 ```
 
-For Kaggle or Hugging Face support, select an extra as shown in
-[dataset integrations](#dataset-integrations). Both pip and uv install the
-required dependencies automatically. Import the class with:
+This records the dependency in the application's `pyproject.toml` and lockfile.
+If starting a new application project, run `uv init` first.
+
+**Local iristool source development**
+
+If you cloned this repository, inside the cloned iristool source folder run: 
+
+```bash
+uv sync                 # core only; creates or updates the local .venv
+# uv sync --all-extras  # include both dataset sources
+```
+
+This installs the local source for development, rather than testing the PyPI
+release. Do not run `uv add iristool` in this folder: a project cannot depend on
+itself. 
+
+See [DEV.md](docs/DEV.md) for source-development instructions.
+
+For Kaggle or Hugging Face support, select an extra as shown in  
+[dataset integrations](#dataset-integrations). Both pip and uv install the  
+required dependencies automatically. 
+
+Import the class with:
 
 ```python
 from iristool import IRIStool
 ```
 
+
+
 ## Quick start
 
-Set your connection details. These example credentials are for the included local Docker development server:
+
+
+### Configure and load `.env`
+
+Create a `.env` file in the folder where you run your scripts or CLI commands.
+If you cloned this repository, copy the [template](.env.example) once:
 
 ```bash
-export IRIS_HOST="localhost"
-export IRIS_PORT="9091"
-export IRIS_NAMESPACE="USER"
-export IRIS_USER="_SYSTEM"
-export IRIS_PASSWORD="SYS"
+cp .env.example .env
 ```
 
-For another server, use its credentials and SuperServer port, usually `1972`.
+If you installed from PyPI, create `.env` yourself with the same settings:
+
+```dotenv
+IRIS_HOST=localhost
+IRIS_PORT=9091
+IRIS_NAMESPACE=USER
+IRIS_USER=_SYSTEM
+IRIS_PASSWORD=SYS
+# Optional source tokens; uncomment only when needed:
+KAGGLE_API_TOKEN='your-kaggle-token'
+HF_TOKEN='your-hugging-face-read-token'
+```
+
+These connection settings match the repository's Docker development server.
+For your own IRIS server, change the credentials, namespace, and SQL port
+(usually `1972`). See [authentication](docs/authentication.md) for obtaining data source tokens.
+
+**Load** `.env` **before running any example or import** in this terminal (bash/zsh):
+
+```bash
+set -a
+source .env
+set +a
+```
+
+This exports the settings to Python and CLI processes, including any uncommented
+source tokens. Repeat the loading step in each new terminal and after editing
+`.env`. iristool does not read the file automatically. Keep `.env` private;
+this repository ignores it in Git. In your own project, add `.env` to `.gitignore`.
+
+### Import a DataFrame
+
+After loading `.env`, run:
 
 ```python
 import os
@@ -112,44 +186,45 @@ implementation as a normal DataFrame import. The integrations live in
 
 ### Install optional support
 
-Install from PyPI with pip, choosing the sources you need:
+Follow [Installation](#installation), replacing `iristool` with the package
+specification for the sources you need (version 0.3.0 or newer):
 
-```bash
-python -m pip install 'iristool[kaggle]>=0.3.0'        # Kaggle
-python -m pip install 'iristool[huggingface]>=0.3.0'   # Hugging Face
-python -m pip install 'iristool[integrations]>=0.3.0'  # all sources + core
-```
 
-Or add iristool to your own uv project:
+| Sources          | Package specification    |
+| ---------------- | ------------------------ |
+| Kaggle           | `iristool[kaggle]`       |
+| Hugging Face     | `iristool[huggingface]`  |
+| All data sources | `iristool[integrations]` |
 
-```bash
-uv add 'iristool[kaggle]>=0.3.0'        # Kaggle
-uv add 'iristool[huggingface]>=0.3.0'   # Hugging Face
-uv add 'iristool[integrations]>=0.3.0'  # all sources + core
-```
 
-Choose one command from either group. Every extra includes the core library. Using only `pip install iristool` or `uv add iristool` will install the core package without source SDKs.
-
-If you use uv without a project, run `uv venv`, then  
-`uv pip install 'iristool[integrations]>=0.3.0'` to install into that environment.
+For example: `uv pip install 'iristool[integrations]>=0.3.0'` or
+`python -m pip install 'iristool[integrations]>=0.3.0'`.
+Every extra includes the core library. Before importing, [configure and load](#configure-and-load-env) `.env`.
 
 ### Import datasets from Python
 
-<details>
-<summary>Show instructions</summary>
+Show instructions
 
-This example downloads the Iris dataset from [Kaggle (`uciml/iris`)](https://www.kaggle.com/datasets/uciml/iris)
-and [Hugging Face (`scikit-learn/iris`)](https://huggingface.co/datasets/scikit-learn/iris),
+This example downloads the Iris dataset from [Kaggle (](https://www.kaggle.com/datasets/uciml/iris)`uciml/iris`[)](https://www.kaggle.com/datasets/uciml/iris)
+and [Hugging Face (](https://huggingface.co/datasets/scikit-learn/iris)`scikit-learn/iris`[)](https://huggingface.co/datasets/scikit-learn/iris),
 importing each into its own IRIS table.
 
-Start the included IRIS server with `docker compose up -d --build`, then run:
+Use a running IRIS server and [configure and load](#configure-and-load-env) `.env`
+in the terminal where you launch Python. For the repository's development server,
+start IRIS with `docker compose up -d --build` first. Then run:
 
 ```python
+import os
 from iristool import IRIStool
 from iristool.integrations import import_kaggle, import_huggingface
 
-with IRIStool(host="localhost", port=9091, namespace="USER",
-              username="_SYSTEM", password="SYS") as db:
+with IRIStool(
+    host=os.environ["IRIS_HOST"],
+    port=int(os.environ["IRIS_PORT"]),
+    namespace=os.environ["IRIS_NAMESPACE"],
+    username=os.environ["IRIS_USER"],
+    password=os.environ["IRIS_PASSWORD"],
+) as db:
     import_kaggle(db, "uciml/iris", table="KaggleIris")
     import_huggingface(db, "scikit-learn/iris", table="HFIris")
     print(db.fetch("SELECT COUNT(*) AS RowsLoaded FROM SQLUser.HFIris"))
@@ -166,12 +241,9 @@ installation usually listens on **1972**.
 You can also import from `iristool.integrations.kaggle` or
 `iristool.integrations.huggingface`; each module exposes `import_dataset(db, ...)`.
 
-</details>
-
 ### Import datasets from the command line (CLI)
 
-<details>
-<summary>Show instructions</summary>
+Show instructions
 
 The CLI lets you download a dataset and save it to IRIS from your terminal,
 without writing a Python script. `kaggle-iris` imports Kaggle datasets;
@@ -181,23 +253,25 @@ and SQL type inference.
 **1. Install the source support** using the pip or uv commands under
 [Install optional support](#install-optional-support).
 
-**2. Start IRIS and set its connection details.** For this repository's Docker
-server, run `docker compose up -d --build` from the checkout and wait for IRIS
-to start. Then set these variables in bash/zsh:
+**2. Configure and load** `.env`**.** Follow the [setup instructions](#configure-and-load-env)
+to create the file with your IRIS settings and optional source tokens. Make sure
+IRIS is running; for the repository's Docker server, use
+`docker compose up -d --build` and wait for startup. In the terminal where you
+will run the imports, load `.env` (bash/zsh):
 
 ```bash
-export IRIS_HOST=localhost
-export IRIS_PORT=9091
-export IRIS_NAMESPACE=USER
-export IRIS_USER=_SYSTEM
-export IRIS_PASSWORD=SYS
+set -a
+source .env
+set +a
 ```
 
-For your own server, use its address, SQL port, namespace, and credentials.
-The defaults when variables are omitted are `localhost:1972`, namespace `USER`,
-and `_SYSTEM` / `SYS`.
+The CLI reads `IRIS_*` from the environment. KaggleHub reads
+`KAGGLE_API_TOKEN` and Hugging Face reads `HF_TOKEN` when those tokens are set.
+If IRIS settings are omitted, the CLI defaults to `localhost:1972`, namespace
+`USER`, and `_SYSTEM` / `SYS`.
 
-**3. Run the import.** With pip and an activated virtual environment:
+**3. Run the import.** After activating the environment installed with pip or
+`uv pip install`, use the CLI directly:
 
 ```bash
 kaggle-iris uciml/iris --file Iris.csv --table KaggleIris
@@ -216,19 +290,25 @@ prints the imported row count. These examples normally need no source login;
 for private or gated data, follow the [authentication guide](docs/authentication.md).
 
 An existing table causes an error. Add `--replace` only when you want to
-**delete the existing table and its data**, then import again.
-Use `kaggle-iris --help` or `hf-iris --help` to list available options.
+**delete the existing table and its data**:
 
-When developing inside the iristool checkout, use `uv run --all-extras` in
-place of `uv run` to include its optional source dependencies. The CLI opens
-and closes the IRIS connection; Python imports use the connection you pass.
+```bash
+kaggle-iris uciml/iris --file Iris.csv --table KaggleIris --replace
+hf-iris scikit-learn/iris --table HFIris --replace
+```
 
-</details>
+Show all available options without importing data:
+
+```bash
+kaggle-iris --help
+hf-iris --help
+```
+
+
 
 ### Kaggle datasets
 
-<details>
-<summary>Show instructions</summary>
+Show instructions
 
 Browse [Kaggle datasets](https://www.kaggle.com/datasets), open a dataset, and
 copy its `owner/dataset` ID or its `https://www.kaggle.com/datasets/...` page URL.
@@ -241,8 +321,8 @@ Default table names come from file stems (`Iris.csv` → `SQLUser.Iris`).
 Select one file by its case-sensitive path from Kaggle's Data Explorer:
 
 ```bash
-uv run kaggle-iris uciml/iris --file Iris.csv --table Flowers
-uv run kaggle-iris uciml/iris/versions/2 --file Iris.csv --table Flowers --replace
+kaggle-iris uciml/iris --file Iris.csv --table Flowers
+kaggle-iris uciml/iris/versions/2 --file Iris.csv --table Flowers --replace
 ```
 
 `--table` requires one file. Without `--file`, KaggleHub downloads the whole
@@ -263,12 +343,9 @@ with IRIStool(**connection) as db:
 Here `connection` is the dictionary from the quick start. Do not pass pandas
 iterator/chunk options: this version imports complete DataFrames.
 
-</details>
-
 ### Hugging Face datasets
 
-<details>
-<summary>Show instructions</summary>
+Show instructions
 
 Browse [Hugging Face datasets](https://huggingface.co/datasets), open one, and
 copy its repository ID or `https://huggingface.co/datasets/...` page URL.
@@ -283,9 +360,9 @@ private or gated data, follow the [Hugging Face authentication guide](docs/authe
 Choose the **subset/configuration** and **split** shown in the dataset viewer:
 
 ```bash
-uv run hf-iris scikit-learn/iris --split 'train[:10]' --table HFSample
+hf-iris scikit-learn/iris --split 'train[:10]' --table HFSample
 # For a dataset with named configurations:
-uv run hf-iris stanfordnlp/sst2 --config default --split validation --table Sentiment
+hf-iris stanfordnlp/sst2 --config default --split validation --table Sentiment
 ```
 
 Use `--revision TAG_OR_COMMIT` to pin a dataset revision. A split slice limits
@@ -299,12 +376,10 @@ Use `--table` to choose a short explicit name, particularly for sliced splits.
 Class-label features keep the values returned by `to_pandas()` (often integer
 codes); the integration does not convert them into human-readable label names.
 
-</details>
-
 ### Options and behavior
 
-<details>
-<summary>Show instructions</summary>
+Show instructions
+
 
 | Option / Python argument        | Kaggle                             | Hugging Face                 |
 | ------------------------------- | ---------------------------------- | ---------------------------- |
@@ -318,45 +393,56 @@ codes); the integration does not convert them into human-readable label names.
 | `--revision` / `revision`       | Version is part of dataset ID      | Branch, tag, commit          |
 
 
-`USER` is the connection namespace; `SQLUser` is the SQL schema. The connection
-account needs SQL permissions, and a custom schema must be usable by that account.
-Identifiers use ASCII letters/digits/underscores and must start with a letter.
-Imported column names replace punctuation with underscores; a `Data_` prefix is
-added when needed. Colliding names fail rather than silently overwriting columns.
+**CLI examples** — activate your environment and load `.env` first.
 
-Pandas determines DataFrame dtypes; the core's [inferred SQL types](#inferred-sql-types)
-apply unchanged. Dates in CSV remain text unless parsed. Leading zeros can be
-lost with default CSV inference; specify `dtype` when they matter.
-For custom SQL types, constraints, keys, or batch sizes, download/prepare a
-DataFrame and call `db.df_to_table()` directly with its existing options.
+Import one Kaggle file with an explicit schema and table name:
 
-</details>
+```bash
+kaggle-iris uciml/iris --file Iris.csv --schema SQLUser --table Flowers
+```
 
-### Dataset limitations
+Import only the first 10 rows of a Hugging Face split from its `main` revision:
 
-<details>
-<summary>Show instructions</summary>
+```bash
+hf-iris scikit-learn/iris --split 'train[:10]' --revision main --table IrisSample
+```
 
-- Each CSV/TSV file or Hugging Face split must fit in memory. Database batching
-does not stream source data. Hugging Face streaming imports are not implemented.
-- Hugging Face nested/list/media columns are rejected before any table write.
-Flatten or explicitly serialize them yourself, then use `df_to_table()`.
-- Kaggle competitions, append mode, and other source connectors are not included.
-- Multi-file imports stop on the first error; earlier imported tables remain.
-Row insertion rolls back on failure, but DDL/replacement commits separately.
-A failure can leave an empty new table; replacement cannot recover old data.
-- Missing source library: install the matching extra and include it in `uv run`.
-- HTTP 401/403 or gated repository: follow the [authentication guide](docs/authentication.md) and check dataset access/accepted terms.
-- Missing split/configuration: select names shown in the Hugging Face viewer.
-- Connection refused: check Docker logs, the SuperServer port, and `IRIS_*` settings.
-- Existing table: choose a different name or explicitly replace it.
+Choose a named Hugging Face configuration and its validation split:
 
-</details>
+```bash
+hf-iris stanfordnlp/sst2 --config default --split validation --table Sentiment
+```
+
+These create new tables. To replace an existing target, add `--replace`;
+**this deletes its previous data**. `main` follows the repository's branch;
+use a commit ID with `--revision` when you need a fixed revision.
+
+**Python example** — reuse the `connection` dictionary from the quick start.
+Pass pandas CSV options through `read_csv_kwargs`; here, `Id` is read as text
+instead of being inferred as an integer:
+
+```python
+from iristool import IRIStool
+from iristool.integrations import import_kaggle
+
+with IRIStool(**connection) as db:
+    import_kaggle(
+        db,
+        "uciml/iris",
+        file="Iris.csv",
+        table="FlowersTextID",
+        schema="SQLUser",
+        read_csv_kwargs={"dtype": {"Id": "string"}},
+    )
+```
+
+iristool uses the resulting pandas dtypes to infer SQL types. In Python,
+`replace=True` has the same destructive replacement behavior as `--replace`.
+
 
 ## Examples
 
-<details>
-<summary>Python examples</summary>
+Python examples
 
 The following examples reuse the `connection` dictionary from the quick start.
 
@@ -431,12 +517,9 @@ with IRIStool(**connection) as db:
     print(db.show_namespace_tables(table_schema="SQLUser"))
 ```
 
-</details>
-
 ## Import behavior
 
-<details>
-<summary>Table policies, inferred SQL types, and transactions</summary>
+Table policies, inferred SQL types, and transactions
 
 ### Existing tables
 
@@ -483,12 +566,9 @@ For object columns, inference recognizes dates/times or falls back to text lengt
 
 `fetch()` uses pandas' normal dtype inference. A result containing large integers and nulls may become a floating-point column; select or cast appropriately when exact integer representation in the returned DataFrame matters.
 
-</details>
-
 ## API reference
 
-<details>
-<summary>Available methods</summary>
+Available methods
 
 Most table helpers default to `table_schema="SQLUser"`. See the method docstrings for complete signatures and options.
 
@@ -514,12 +594,16 @@ Most table helpers default to `table_schema="SQLUser"`. See the method docstring
 | `show_namespace_schemas()`                               | List schemas containing base tables                 |
 | `close()`                                                | Close the connection explicitly                     |
 
-</details>
+
+
 
 ## Development and testing
 
-<details>
-<summary>Local setup, Docker, and test commands</summary>
+The commands in this section test the local source checkout. To test the
+published package instead, use the isolated PyPI environment described in
+[installation](#installation) and the dataset import examples above.
+
+Local setup, Docker, and test commands
 
 To add another dataset source, follow the [integration development guide](docs/DEV.md).
 
@@ -606,12 +690,10 @@ Enable only `KAGGLE_IRIS_INTEGRATION=1` or `HF_IRIS_INTEGRATION=1` to test one p
 On PowerShell, set the environment variables with `$env:NAME = "value"` before
 running the same Python test command without the inline assignments.
 
-</details>
-
 ## Troubleshooting
 
-<details>
-<summary>Common problems and solutions</summary>
+Common problems and solutions
+
 
 | Symptom                                 | What to check                                                                                          |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -623,12 +705,10 @@ running the same Python test command without the inline assignments.
 | Constraint failure in a batch           | Correct the offending data; inserted rows roll back, but the created table remains                     |
 | Timezone-aware datetime rejected        | Convert to the desired timezone, then remove timezone information                                      |
 
-</details>
 
 ## Project layout
 
-<details>
-<summary>Repository files</summary>
+Repository files
 
 ```text
 .
@@ -658,8 +738,6 @@ running the same Python test command without the inline assignments.
 ```
 
 The Python wheel includes the library, metadata, and license. Docker files and durable database data are not part of the installed library.
-
-</details>
 
 ## Credits and license
 

@@ -9,6 +9,30 @@ The `uv run` commands below assume you installed iristool in your own uv project
 In the iristool source checkout, use `uv run --all-extras` instead. With pip,
 activate your virtual environment and omit the `uv run` prefix.
 
+## Store tokens in `.env`
+
+Follow the README's [`.env` setup](../README.md#configure-and-load-env) to create
+your connection configuration. After obtaining a token using the provider's
+instructions below, uncomment and fill in the corresponding line in `.env`:
+
+```dotenv
+KAGGLE_API_TOKEN='your-kaggle-token'
+HF_TOKEN='your-hugging-face-read-token'
+```
+
+Only set the tokens your datasets need. Load the file in the same terminal
+before running Python or the CLI (bash/zsh):
+
+```bash
+set -a
+source .env
+set +a
+```
+
+The SDKs read these exported variables; iristool does not load `.env` itself.
+Reload the file after changing a token. Cached login credentials are an
+alternative to setting tokens in `.env`. Do not commit the file.
+
 ## Kaggle
 
 Most public datasets, including `uciml/iris`, need no account or API key.

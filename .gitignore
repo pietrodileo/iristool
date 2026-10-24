@@ -7,3 +7,4 @@ dist/
 .env
 storage/
 .DS_Store
+.venv-pypi/
