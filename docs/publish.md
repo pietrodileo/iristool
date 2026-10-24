@@ -2,35 +2,48 @@
 
 Once the project is ready to share, build and upload it so anyone can install it with `pip install iristool` or `uv pip install iristool`. Install [uv](https://docs.astral.sh/uv/getting-started/installation/) first, run the tests described in the [README](../README.md#development-and-testing), and execute these commands from the repository root.
 
-## Integration release (0.2.0)
+## Current release: 0.3.1
 
-The working tree is prepared as **0.2.0** with optional `kaggle`, `huggingface`,
-and `integrations` extras. This does not mean it has been uploaded to PyPI.
-Before releasing, run the full suite with `uv run --all-extras`, including the
-source integration flags described in the README. Build and inspect the wheel:
-it must include `iristool/integrations/`, both CLI entry points, and optional
-extra metadata. A base install must not require either source SDK.
+Version **0.3.1** is published on PyPI. This is a patch release with no major
+API changes. The package includes optional `kaggle`, `huggingface`, and
+`integrations` extras, plus the `kaggle-iris` and `hf-iris` commands.
+`pyproject.toml` and the iristool entry in `uv.lock` should both say `0.3.1`.
 
-After publishing, verify in a fresh environment using
-`python -m pip install 'iristool[integrations]==0.2.0'`, then test
-`kaggle-iris --help`, `hf-iris --help`, and the public dataset examples against
-IRIS. Also verify `pip install iristool==0.2.0` without extras. Do not bump again
-if 0.2.0 is the intended unpublished version. Publishing is a separate explicit
-release action, not part of running the tests or installing from source.
+To verify this release independently of the source checkout:
+
+```bash
+uv venv .venv-pypi
+source .venv-pypi/bin/activate
+uv pip install 'iristool[integrations]==0.3.1'
+uv pip show iristool
+kaggle-iris --help
+hf-iris --help
+```
+
+Use the README's `.env` setup and public dataset examples to test against IRIS.
+Verify a base install without extras in another fresh environment as well:
+`uv pip install 'iristool==0.3.1'`. It must not require either source SDK.
+
+Do not republish changed files as 0.3.1. The steps below are for the next release.
+Before releasing, run the suite with `uv run --all-extras`, including the source
+integration flags described in the README. Inspect the built wheel: it must
+include `iristool/integrations/`, both CLI entry points, and optional extras.
+Publishing is a separate explicit action; installation and testing do not upload
+anything to PyPI.
 
 ## 1. Bump the version
 
-Every new release needs a new version. Choose **one** command; the comments below assume the current version is `0.1.0`:
+Every new release needs a new version. Choose **one** command; these examples start from `0.3.1`:
 
 ```bash
-uv version --bump patch    # 0.1.0 -> 0.1.1
-uv version --bump minor    # 0.1.0 -> 0.2.0
-uv version --bump major    # 0.1.0 -> 1.0.0
+uv version --bump patch    # 0.3.1 -> 0.3.2
+uv version --bump minor    # 0.3.1 -> 0.4.0
+uv version --bump major    # 0.3.1 -> 1.0.0
 uv version 1.2.3          # set an explicit version
 uv version                # just print the current version
 ```
 
-`uv version` updates `pyproject.toml` and, by default, locks and syncs the project, creating or updating `uv.lock`. For the first release, keep `0.1.0` if it has not been published. Already uploaded files cannot be replaced with changed contents under the same filenames.
+`uv version` updates `pyproject.toml` and, by default, locks and syncs the project, creating or updating `uv.lock`. Already uploaded files cannot be replaced with changed contents under the same filenames.
 
 ## 2. Build distributable artifacts
 
@@ -46,7 +59,7 @@ Log in to [PyPI](https://pypi.org/manage/account/token/) and create an API token
 
 ## 4. Publish with the token
 
-Export the token as `UV_PUBLISH_TOKEN`; `uv publish` reads it automatically. These examples prompt for it so the token itself is not saved in shell history.
+Export the token as `UV_PUBLISH_TOKEN`; `uv publish` reads it automatically. Keep the token private and avoid saving it in source control or shared shell history.
 
 Linux / macOS / Git Bash, with Python available:
 

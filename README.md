@@ -2,6 +2,8 @@
 
 Load pandas DataFrames into InterSystems IRIS and query them with Python.
 
+Current release: **0.3.1**, published on PyPI.
+
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat)![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat)![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
 
 **iristool** is a small Python library for moving data between pandas and InterSystems IRIS. Create a SQL table from a DataFrame, run parameterized queries, and manage rows, tables, views, and indexes through one connection object.
@@ -62,7 +64,7 @@ uv venv
 source .venv/bin/activate
 uv pip install iristool
 # Or install the core plus both dataset sources:
-# uv pip install 'iristool[integrations]>=0.3.0'
+# uv pip install 'iristool[integrations]>=0.3.1'
 ```
 
 **Application project (with** `pyproject.toml`**)**
@@ -180,14 +182,14 @@ This creates `SQLUser.People` and inserts two rows. The connection closes when t
 
 ## Dataset integrations
 
-**New in 0.3.0:** download datasets directly from external sources like Kaggle or Hugging Face and save them using the same `IRIStool.df_to_table()`
+**Available in 0.3.1:** download datasets directly from external sources like Kaggle or Hugging Face and save them using the same `IRIStool.df_to_table()`
 implementation as a normal DataFrame import. The integrations live in
 `iristool.integrations`.
 
 ### Install optional support
 
 Follow [Installation](#installation), replacing `iristool` with the package
-specification for the sources you need (version 0.3.0 or newer):
+specification for the sources you need (version 0.3.1 or newer):
 
 
 | Sources          | Package specification    |
@@ -197,8 +199,8 @@ specification for the sources you need (version 0.3.0 or newer):
 | All data sources | `iristool[integrations]` |
 
 
-For example: `uv pip install 'iristool[integrations]>=0.3.0'` or
-`python -m pip install 'iristool[integrations]>=0.3.0'`.
+For example: `uv pip install 'iristool[integrations]>=0.3.1'` or
+`python -m pip install 'iristool[integrations]>=0.3.1'`.
 Every extra includes the core library. Before importing, [configure and load](#configure-and-load-env) `.env`.
 
 ### Import datasets from Python
@@ -697,7 +699,7 @@ Common problems and solutions
 
 | Symptom                                 | What to check                                                                                          |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Integrations missing after pip install  | Install iristool 0.3.0 or newer with the desired source extra                                          |
+| Integrations missing after pip install  | Install iristool 0.3.1 or newer with the desired source extra                                          |
 | Connection refused                      | Check that IRIS is running and the SuperServer port is reachable; this Compose setup maps it to `9091` |
 | Authentication failure                  | Check the account, password, namespace access, and password expiration                                 |
 | Table already exists                    | Choose skip/replacement explicitly, or use row helpers to insert into it                               |
