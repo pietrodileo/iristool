@@ -7,6 +7,49 @@ SQL types, creating tables, inserting rows, and handling database errors.**
 Run the commands below from the `iristool` repository root. A separate project
 or package is not required.
 
+## Local development environment
+
+For local development, testing, and running examples, use uv to create a virtual
+environment (`.venv`) inside the `iristool` source folder. No separate `uv venv`
+step is needed: run one of these commands to create the environment and install
+the dependencies for the features you want to test:
+
+
+| Command                       | What is installed in the project's `.venv`                                  |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| `uv sync`                     | iristool, pandas, the IRIS driver, and their dependencies; no source SDKs   |
+| `uv sync --extra kaggle`      | The base installation plus `kagglehub` and its dependencies                 |
+| `uv sync --extra huggingface` | The base installation plus `datasets` and its dependencies                  |
+| `uv sync --all-extras`        | The base installation plus every declared extra; currently both source SDKs |
+
+
+These commands create or update `.venv` and install iristool in editable mode,
+so source edits are available without reinstalling. Run tests and examples with
+`uv run` to use this environment; manual activation is not required.
+They do not download any
+datasets, start IRIS, or import data. `uv sync` removes packages that are not
+needed by the selected configuration: switching from `--all-extras` to
+`--extra kaggle` removes packages needed only by Hugging Face support.
+
+When running commands in this checkout, request the same extras, for example
+`uv run --extra kaggle kaggle-iris --help` or
+`uv run --all-extras python -m unittest discover -s tests -v -b`.
+Plain `uv run` does not request the checkout's optional extras. Avoid mixing
+pip installs into this uv-managed environment. Quote bracketed package names
+in shells such as zsh.
+
+Alternatively, install the source in editable mode with pip:
+
+```bash
+python -m pip install -e '.[integrations]'  # both sources
+python -m pip install -e '.[kaggle]'        # Kaggle only
+python -m pip install -e '.[huggingface]'   # Hugging Face only
+```
+
+Here `.` means the current source folder and `-e` makes source edits available
+without reinstalling. These are developer commands; users install the published
+package by name as shown in the README.
+
 ## Current structure
 
 ```text
