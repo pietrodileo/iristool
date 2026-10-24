@@ -1,4 +1,4 @@
-"""Live IRIS tests: IRIS_INTEGRATION=1 python -m unittest discover -s tests -v."""
+"""Live IRIS tests: IRIS_INTEGRATION=1 uv run python -m unittest discover -s tests -v -b."""
 import datetime as dt
 import os
 import unittest

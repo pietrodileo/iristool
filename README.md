@@ -12,6 +12,8 @@ Python runs in your own environment and connects to an existing IRIS server thro
 
 ---
 
+
+
 ## Features
 
 - **DataFrame to SQL:** create a table, infer column types, and insert rows in batches.
@@ -56,8 +58,6 @@ For development, use `python -m pip install -e .`. Both installation methods ins
 ```python
 from iristool import IRIStool
 ```
-
-
 
 ## Quick start
 
@@ -258,16 +258,13 @@ Most table helpers default to `table_schema="SQLUser"`. See the method docstring
 
 ## Development and testing
 
-Use a virtual environment with Python 3.10 or newer. These shell examples use macOS/Linux; on Windows, activate with `.venv\Scripts\Activate.ps1` and set environment variables using PowerShell.
+Use [uv](https://docs.astral.sh/uv/getting-started/installation/) with Python 3.10 or newer. `uv run` prepares the project environment and runs Python; `unittest` is the test runner. No virtual-environment activation is needed.
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e .
-python -m unittest discover -s tests -v
+uv run python -m unittest discover -s tests -v -b
 ```
 
-The regular suite runs unit tests and skips live database tests.
+The regular suite runs unit tests and skips live database tests. `-v` shows each test and its result. `-b` buffers output from passing tests, hiding expected error messages; if a test fails, its captured output is displayed.
 
 ### Run against Docker IRIS
 
@@ -275,8 +272,7 @@ The regular suite runs unit tests and skips live database tests.
 docker compose up -d --build
 docker compose logs --tail 20
 # Wait until IRIS reports that it has started.
-IRIS_INTEGRATION=1 python -m unittest discover -s tests -v
-docker compose stop
+IRIS_INTEGRATION=1 uv run python -m unittest discover -s tests -v -b
 ```
 
 The included development server uses:
@@ -292,6 +288,30 @@ The included development server uses:
 
 
 Live tests read the `IRIS_HOST`, `IRIS_PORT`, `IRIS_NAMESPACE`, `IRIS_USER`, and `IRIS_PASSWORD` variables, with the above defaults. They create uniquely named test tables/views and remove them after each test. The startup script unexpires development passwords.
+
+On PowerShell, set `$env:IRIS_INTEGRATION = "1"`, then run the same `uv run` command without the `IRIS_INTEGRATION=1` prefix.
+
+Expected result: `Ran 22 tests` followed by `OK`, with no skipped tests. Some tests deliberately attempt a duplicate table or primary key to verify that errors propagate and inserted rows roll back. Their error messages are expected, not failed tests. Unit-test names such as `SQLUser.Data` refer to mocked operations and do not create real tables.
+
+### Inspect sample data in the IRIS Portal
+
+The automated tests clean up their tables, so they leave nothing to browse. To see a lasting example, keep IRIS running and execute:
+
+```bash
+uv run python examples/portal_demo.py
+```
+
+This imports three rows, verifies names, nulls, and Unicode, prints the result, and **leaves** `SQLUser.IRISTool_Demo` **in IRIS**. Each run replaces that demo table and its previous data. It uses the same connection environment variables and defaults as the tests.
+
+Open the [Management Portal](http://localhost:9092/csp/sys/UtilHome.csp), navigate to **System Explorer → SQL**, select namespace **USER** (or your configured `IRIS_NAMESPACE`), and execute:
+
+```sql
+SELECT Sample_Number, Name, Score, Active, Note
+FROM SQLUser.IRISTool_Demo
+ORDER BY Sample_Number;
+```
+
+You should see Ada, Grace, and Linus, including a missing score and a missing Boolean value. To remove the demo, execute `DROP TABLE SQLUser.IRISTool_Demo;` in the SQL page. When finished, run `docker compose stop`; the demo data persists in `storage/` when IRIS is restarted.
 
 Coverage includes mixed DataFrame types, nulls, Unicode and long text, large integers, batching, empty imports, replacement, row helpers, metadata, ordinary indexes/views, and rollback after constraint failures. 
 
@@ -309,6 +329,8 @@ Coverage includes mixed DataFrame types, nulls, Unicode and long text, large int
 | Timezone-aware datetime rejected        | Convert to the desired timezone, then remove timezone information                                      |
 
 
+
+
 ## Project layout
 
 ```text
@@ -321,6 +343,8 @@ Coverage includes mixed DataFrame types, nulls, Unicode and long text, large int
 │   └── test_iris_integration.py  Opt-in live IRIS tests
 ├── docs/
 │   └── publish.md          PyPI release instructions using uv
+├── examples/
+│   └── portal_demo.py      Persistent sample table for Portal inspection
 ├── pyproject.toml         Package metadata and build configuration
 ├── requirements.txt       Runtime dependencies for pip
 ├── Dockerfile             Development IRIS image
