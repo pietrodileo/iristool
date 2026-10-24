@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iristool"
-version = "0.1.2"
+version = "0.3.1"
 description = "Simple pandas and SQL helpers for InterSystems IRIS"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,6 +12,15 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [{name = "Pietro Di Leo"}]
 dependencies = ["pandas>=2.2,<4", "intersystems-irispython>=5.2.1,<6"]
+
+[project.optional-dependencies]
+kaggle = ["kagglehub>=0.3.13,<1"]
+huggingface = ["datasets>=4,<5"]
+integrations = ["kagglehub>=0.3.13,<1", "datasets>=4,<5"]
+
+[project.scripts]
+kaggle-iris = "iristool.integrations.cli:main_kaggle"
+hf-iris = "iristool.integrations.cli:main_huggingface"
 
 [project.urls]
 Homepage = "https://github.com/pietrodileo/iristool"
