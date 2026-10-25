@@ -5,6 +5,7 @@ services:
       context: .        # Build using local Dockerfile
       dockerfile: Dockerfile
     image: iris-tool-test:latest  # Custom project image, not the base one
+    pull_policy: build  # Build locally instead of pulling the custom image
     init: true
     restart: unless-stopped
     volumes:

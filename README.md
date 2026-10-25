@@ -1,16 +1,12 @@
 # iristool
 
-Load pandas DataFrames into InterSystems IRIS and query them with Python.
-
-Current release: **0.3.1**, published on PyPI.
-
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat)![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat)![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
 
 **iristool** is a small Python library for moving data between pandas and InterSystems IRIS. Create a SQL table from a DataFrame, run parameterized queries, and manage rows, tables, views, and indexes through one connection object.
 
 Python runs in your own environment and connects to an existing IRIS server through the official `intersystems-irispython` DB API. Install the library on your laptop, in a notebook, or in a Python application; no Python packages need to be installed inside IRIS.
 
-[Installation](#installation) · [Quick start](#quick-start) · [Dataset imports](#dataset-integrations) · [CLI](#import-datasets-from-the-command-line-cli) · [Examples](#examples) · [API](#api-reference) · [Testing](#development-and-testing)
+[Installation](#installation) · [Quick start](#quick-start) · [Dataset imports](#dataset-integrations) · [CLI](#import-datasets-from-the-command-line-cli) · [Export](#export-a-table) · [Examples](#examples) · [API](#api-reference) · [Testing](#development-and-testing)
 
 [Authentication](docs/authentication.md) · [Adding data sources](docs/DEV.md) · [Publishing](docs/publish.md)
 
@@ -24,6 +20,7 @@ What iristool does
 
 - **DataFrame to SQL:** create a table, infer column types, and insert rows in batches.
 - **SQL to DataFrame:** retrieve query results with optional bound parameters.
+- **Table export:** save a table as CSV, XLSX, or JSON through pandas.
 - **Data handling:** normalize column names and convert pandas missing values to SQL `NULL`.
 - **Import control:** choose whether to fail, skip, or replace an existing table; supply explicit types, a primary key, constraints, and indexes.
 - **SQL helpers:** insert and update rows, inspect metadata, and manage tables, columns, views, and indexes.
@@ -32,6 +29,31 @@ What iristool does
 Optional [dataset integrations](#dataset-integrations) download Kaggle and Hugging Face datasets and import them through the same DataFrame API. Source libraries are installed only when requested.
 
 The library handles the IRIS part of a data workflow. Read a CSV with pandas, download data with another library, or construct a DataFrame yourself, then pass it to `df_to_table()`.
+
+## Supported import and export formats
+
+
+| Operation                        | Supported input or output                                                                              | How it works                                                                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Core import                      | pandas `DataFrame`                                                                                     | `db.df_to_table(df, "Table")`; the core receives a DataFrame, not a file path                                                       |
+| Local file import through pandas | CSV, TSV, XLSX, JSON, Parquet, and other formats pandas can read                                       | Read the file with pandas first, then pass the resulting DataFrame to `df_to_table()`; some readers require additional dependencies |
+| Kaggle import                    | **CSV (**`.csv`**) and TSV (**`.tsv`**) only**                                                         | `import_kaggle()` / `iristool-kaggle`; other file types in a downloaded dataset are ignored                                         |
+| Hugging Face import              | Dataset splits loadable by `datasets.load_dataset()`, including tabular CSV, JSON, and Parquet sources | `import_huggingface()` / `iristool-hf`; the split must convert to a DataFrame with SQL-compatible scalar columns                    |
+| Core export                      | **CSV (**`.csv`**), Excel (**`.xlsx`**), JSON (**`.json`**)**                                          | `db.export_table("Table", "output.csv")`; the extension selects the pandas writer                                                   |
+
+
+CSV/JSON export needs only the base installation. XLSX import through pandas
+and XLSX export require the optional `excel` extra (`openpyxl`). Parquet
+import through pandas requires a compatible engine such as `pyarrow`, installed
+separately or provided by the Hugging Face dependencies.
+
+Nested JSON objects, lists, images, and audio need preprocessing into scalar columns before SQL import and are not directly supported. JSON export defaults to an array of row objects. 
+
+Direct `export_table()` output is limited to the three extensions above:
+`.tsv`, `.xls`, and `.parquet` are not accepted. For other export formats,
+retrieve a DataFrame with `db.fetch(...)` and use pandas directly.
+
+See [dataset integrations](#dataset-integrations) and [export examples](#export-a-table).
 
 ## Installation
 
@@ -84,17 +106,15 @@ If you cloned this repository, inside the cloned iristool source folder run:
 
 ```bash
 uv sync                 # core only; creates or updates the local .venv
-# uv sync --all-extras  # include both dataset sources
+# uv sync --all-extras  # include both dataset sources and Excel support
 ```
 
 This installs the local source for development, rather than testing the PyPI
-release. Do not run `uv add iristool` in this folder: a project cannot depend on
-itself. 
+release. Do not run `uv add iristool` in this folder: a project cannot depend on itself. 
 
 See [DEV.md](docs/DEV.md) for source-development instructions.
 
-For Kaggle or Hugging Face support, select an extra as shown in  
-[dataset integrations](#dataset-integrations). Both pip and uv install the  
+For Kaggle or Hugging Face support, select an extra as shown in [dataset integrations](#dataset-integrations). Both pip and uv install the  
 required dependencies automatically. 
 
 Import the class with:
@@ -131,9 +151,11 @@ KAGGLE_API_TOKEN='your-kaggle-token'
 HF_TOKEN='your-hugging-face-read-token'
 ```
 
-These connection settings match the repository's Docker development server.
-For your own IRIS server, change the credentials, namespace, and SQL port
-(usually `1972`). See [authentication](docs/authentication.md) for obtaining data source tokens.
+These connection settings match the repository's Docker development server. 
+
+For your own IRIS server, change the credentials, namespace, and SQL port. 
+
+See [authentication](docs/authentication.md) for obtaining data source tokens.
 
 **Load** `.env` **before running any example or import** in this terminal (bash/zsh):
 
@@ -145,8 +167,7 @@ set +a
 
 This exports the settings to Python and CLI processes, including any uncommented
 source tokens. Repeat the loading step in each new terminal and after editing
-`.env`. iristool does not read the file automatically. Keep `.env` private;
-this repository ignores it in Git. In your own project, add `.env` to `.gitignore`.
+`.env`. iristool does not read the file automatically.
 
 ### Import a DataFrame
 
@@ -182,14 +203,13 @@ This creates `SQLUser.People` and inserts two rows. The connection closes when t
 
 ## Dataset integrations
 
-**Available in 0.3.1:** download datasets directly from external sources like Kaggle or Hugging Face and save them using the same `IRIStool.df_to_table()`
-implementation as a normal DataFrame import. The integrations live in
-`iristool.integrations`.
+Download datasets directly from external sources like Kaggle or Hugging Face and save them using the same `IRIStool.df_to_table()` implementation as a normal DataFrame import. 
+
+The integrations live in `iristool.integrations`.
 
 ### Install optional support
 
-Follow [Installation](#installation), replacing `iristool` with the package
-specification for the sources you need (version 0.3.1 or newer):
+Follow [Installation](#installation), replacing `iristool` with the package specification for the sources you need:
 
 
 | Sources          | Package specification    |
@@ -200,12 +220,23 @@ specification for the sources you need (version 0.3.1 or newer):
 
 
 For example: `uv pip install 'iristool[integrations]>=0.3.1'` or
-`python -m pip install 'iristool[integrations]>=0.3.1'`.
-Every extra includes the core library. Before importing, [configure and load](#configure-and-load-env) `.env`.
+`python -m pip install 'iristool[integrations]>=0.3.1'`. Every extra includes the core library.
+
+**Datasets used in the examples**
+
+
+| Dataset                                                                                                                                | Source       | IRIS table names used below                                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------- |
+| [Iris —](https://www.kaggle.com/datasets/uciml/iris) `uciml/iris` ([version 2](https://www.kaggle.com/datasets/uciml/iris/versions/2)) | Kaggle       | `KaggleIris`, `Flowers`, `FlowersTextID`; default `Iris`                          |
+| [Iris —](https://huggingface.co/datasets/scikit-learn/iris) `scikit-learn/iris`                                                        | Hugging Face | `HFIris`, `HFSample`, `IrisSample`; default `HF_iris_train`                       |
+| [SST-2 —](https://huggingface.co/datasets/stanfordnlp/sst2) `stanfordnlp/sst2`                                                         | Hugging Face | `Sentiment`                                                                       |
+| [Brazilian E-Commerce —](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) `olistbr/brazilian-ecommerce`                    | Kaggle       | One table per CSV, including `olist_orders_dataset` and `olist_customers_dataset` |
+
+
+These are the source dataset pages. SQL table names are local names chosen by
+iristool or by `--table`.
 
 ### Import datasets from Python
-
-Show instructions
 
 This example downloads the Iris dataset from [Kaggle (](https://www.kaggle.com/datasets/uciml/iris)`uciml/iris`[)](https://www.kaggle.com/datasets/uciml/iris)
 and [Hugging Face (](https://huggingface.co/datasets/scikit-learn/iris)`scikit-learn/iris`[)](https://huggingface.co/datasets/scikit-learn/iris),
@@ -237,20 +268,18 @@ Each example imports 150 rows. The helpers return a mapping such as
 `{"SQLUser.HFIris": 150}` and print the imported table and row count.
 The caller owns the connection: the integrations neither open nor close it.
 Use the same `db` afterwards for queries, metadata, indexes, or other imports.
-These samples use this repository's Docker port **9091**; an ordinary IRIS
-installation usually listens on **1972**.
 
 You can also import from `iristool.integrations.kaggle` or
 `iristool.integrations.huggingface`; each module exposes `import_dataset(db, ...)`.
 
 ### Import datasets from the command line (CLI)
 
-Show instructions
-
 The CLI lets you download a dataset and save it to IRIS from your terminal,
-without writing a Python script. `kaggle-iris` imports Kaggle datasets;
-`hf-iris` imports Hugging Face datasets. Both use iristool's DataFrame import
-and SQL type inference.
+without writing a Python script. 
+
+`iristool-kaggle` imports Kaggle datasets; `iristool-hf` imports Hugging Face datasets. 
+
+Both use iristool's DataFrame import and SQL type inference.
 
 **1. Install the source support** using the pip or uv commands under
 [Install optional support](#install-optional-support).
@@ -276,15 +305,15 @@ If IRIS settings are omitted, the CLI defaults to `localhost:1972`, namespace
 `uv pip install`, use the CLI directly:
 
 ```bash
-kaggle-iris uciml/iris --file Iris.csv --table KaggleIris
-hf-iris scikit-learn/iris --table HFIris
+iristool-kaggle uciml/iris --file Iris.csv --table KaggleIris
+iristool-hf scikit-learn/iris --table HFIris
 ```
 
 If you installed with `uv add` in your own project, run:
 
 ```bash
-uv run kaggle-iris uciml/iris --file Iris.csv --table KaggleIris
-uv run hf-iris scikit-learn/iris --table HFIris
+uv run iristool-kaggle uciml/iris --file Iris.csv --table KaggleIris
+uv run iristool-hf scikit-learn/iris --table HFIris
 ```
 
 Each command downloads the data, creates its target table in `SQLUser`, and
@@ -295,22 +324,20 @@ An existing table causes an error. Add `--replace` only when you want to
 **delete the existing table and its data**:
 
 ```bash
-kaggle-iris uciml/iris --file Iris.csv --table KaggleIris --replace
-hf-iris scikit-learn/iris --table HFIris --replace
+iristool-kaggle uciml/iris --file Iris.csv --table KaggleIris --replace
+iristool-hf scikit-learn/iris --table HFIris --replace
 ```
 
 Show all available options without importing data:
 
 ```bash
-kaggle-iris --help
-hf-iris --help
+iristool-kaggle --help
+iristool-hf --help
 ```
 
 
 
 ### Kaggle datasets
-
-Show instructions
 
 Browse [Kaggle datasets](https://www.kaggle.com/datasets), open a dataset, and
 copy its `owner/dataset` ID or its `https://www.kaggle.com/datasets/...` page URL.
@@ -323,64 +350,98 @@ Default table names come from file stems (`Iris.csv` → `SQLUser.Iris`).
 Select one file by its case-sensitive path from Kaggle's Data Explorer:
 
 ```bash
-kaggle-iris uciml/iris --file Iris.csv --table Flowers
-kaggle-iris uciml/iris/versions/2 --file Iris.csv --table Flowers --replace
+iristool-kaggle uciml/iris --file Iris.csv --table Flowers
+iristool-kaggle uciml/iris/versions/2 --file Iris.csv --table Flowers --replace
 ```
 
 `--table` requires one file. Without `--file`, KaggleHub downloads the whole
 dataset; with it, only the requested file is downloaded. Downloads are cached
-in `~/.cache/kagglehub`; `KAGGLEHUB_CACHE` changes the cache location.
+in `~/.cache/kagglehub`; the **environment variable** `KAGGLEHUB_CACHE` changes
+the cache location (for example, `export KAGGLEHUB_CACHE="$HOME/dataset-cache"`).
+
+Example: import every CSV in a Kaggle dataset
+
+The [Olist dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) contains several CSV files. Load `.env`, then omit both `--file` and `--table`:
+
+```bash
+iristool-kaggle olistbr/brazilian-ecommerce
+```
+
+iristool imports every CSV/TSV into its own table in `SQLUser`, including:
+
+
+| Downloaded file                 | Target table                        |
+| ------------------------------- | ----------------------------------- |
+| `olist_orders_dataset.csv`      | `SQLUser.olist_orders_dataset`      |
+| `olist_customers_dataset.csv`   | `SQLUser.olist_customers_dataset`   |
+| `olist_order_items_dataset.csv` | `SQLUser.olist_order_items_dataset` |
+
+
+The remaining CSVs are imported too; non-CSV/TSV files are ignored. 
+
+The Python equivalent, using the quick-start connection, is:
+
+```python
+with IRIStool(**connection) as db:
+    imported = import_kaggle(db, "olistbr/brazilian-ecommerce")
+    print(imported)  # {"SQLUser.olist_customers_dataset": row_count, ...}
+```
+
+To import only orders, use `iristool-kaggle olistbr/brazilian-ecommerce --file olist_orders_dataset.csv --table Orders`. Existing targets cause an error; `--replace` deletes and recreates them. Imports across several tables are not atomic: if a later file fails, earlier imports remain. Each CSV is loaded into memory separately. No foreign keys are inferred between these tables.
 
 For CSV parsing control in Python, pass pandas options directly:
 
 ```python
 with IRIStool(**connection) as db:
-    import_kaggle(db, "owner/dataset", file="sales.csv", read_csv_kwargs={
-        "dtype": {"postal_code": "string"},
-        "parse_dates": ["order_date"],
+    import_kaggle(db, "olistbr/brazilian-ecommerce", file="olist_orders_dataset.csv", read_csv_kwargs={
+        "dtype": {"customer_id": "string"},
+        "parse_dates": ["order_purchase_timestamp"],
         "encoding": "utf-8",
     })
 ```
 
-Here `connection` is the dictionary from the quick start. Do not pass pandas
-iterator/chunk options: this version imports complete DataFrames.
+Here `connection` is the dictionary from the quick start. Do not pass pandas iterator/chunk options: this version imports complete DataFrames.
 
 ### Hugging Face datasets
 
-Show instructions
+Browse [Hugging Face datasets](https://huggingface.co/datasets), open one, and copy its repository ID or `https://huggingface.co/datasets/...` page URL. The integration uses `datasets.load_dataset(...).to_pandas()`, then calls `db.df_to_table()`. It imports one split per call; the default split is `train`. 
 
-Browse [Hugging Face datasets](https://huggingface.co/datasets), open one, and
-copy its repository ID or `https://huggingface.co/datasets/...` page URL.
-The integration uses `datasets.load_dataset(...).to_pandas()`, then calls
-`db.df_to_table()`. It imports one split per call; the default split is `train`.
-The datasets library handles supported underlying formats such as CSV, JSON,
-and Parquet. No manual file download or unzipping is needed.
+The datasets library handles supported underlying formats such as CSV, JSON, and Parquet. No manual file download or unzipping is needed.
 
-Public, ungated datasets such as `scikit-learn/iris` work without login. For
-private or gated data, follow the [Hugging Face authentication guide](docs/authentication.md#hugging-face).
+Public, ungated datasets such as `scikit-learn/iris` work without login. For private or gated data, follow the [Hugging Face authentication guide](docs/authentication.md#hugging-face).
+
+**Example of a dataset requiring browser confirmation**
+
+[LMSYS-Chat-1M (](https://huggingface.co/datasets/lmsys/lmsys-chat-1m)`lmsys/lmsys-chat-1m`[)](https://huggingface.co/datasets/lmsys/lmsys-chat-1m) requires you to sign in and accept its conditions on the dataset page. To see the access error with an account that has not received access (or without a token), load your IRIS connection settings and run:
+
+```bash
+iristool-hf lmsys/lmsys-chat-1m --split 'train[:1]' --table AccessCheck
+```
+
+The command exits with status **1** before importing any tables and reports:
+
+```text
+Import failed: Dataset processing failed: access denied. Open https://huggingface.co/datasets/lmsys/lmsys-chat-1m in your browser, sign in and confirm the terms or request access. Wait for approval if required. Then set HF_TOKEN (or log in with the source SDK) using the approved account and repeat the same command. No dataset tables were imported.
+```
+
+See [browser approval and token setup](docs/authentication.md#when-browser-approval-is-required) for the steps to resolve access errors.
+
+This example demonstrates the access restriction. LMSYS contains nested conversation values, so approval alone does not make it ready for direct SQL import: flatten or serialize them before using `db.df_to_table()`. Once access is granted, even a one-row slice may download/prepare the full dataset. Use the Iris examples below for a small, directly importable dataset.
 
 Choose the **subset/configuration** and **split** shown in the dataset viewer:
 
 ```bash
-hf-iris scikit-learn/iris --split 'train[:10]' --table HFSample
+iristool-hf scikit-learn/iris --split 'train[:10]' --table HFSample
 # For a dataset with named configurations:
-hf-iris stanfordnlp/sst2 --config default --split validation --table Sentiment
+iristool-hf stanfordnlp/sst2 --config default --split validation --table Sentiment
 ```
 
-Use `--revision TAG_OR_COMMIT` to pin a dataset revision. A split slice limits
-rows imported into IRIS; the loader may still download/prepare the full source.
-Datasets without a `train` split require `--split`. Datasets with multiple
-configurations may require `--config`.
+Use `--revision TAG_OR_COMMIT` to pin a dataset revision. A split slice limits rows imported into IRIS; the loader may still download/prepare the full source. Datasets without a `train` split require `--split`. Datasets with multiple configurations may require `--config`.
 
-The default table is `HF_<dataset>_[<config>_]<split>`, with punctuation replaced
-by underscores. For `scikit-learn/iris`, this is `SQLUser.HF_iris_train`.
-Use `--table` to choose a short explicit name, particularly for sliced splits.
-Class-label features keep the values returned by `to_pandas()` (often integer
-codes); the integration does not convert them into human-readable label names.
+The default table is `HF_<dataset>_[<config>_]<split>`, with punctuation replaced by underscores. For `scikit-learn/iris`, this is `SQLUser.HF_iris_train`. Use `--table` to choose a short explicit name, particularly for sliced splits.
+Class-label features keep the values returned by `to_pandas()` (often integer codes); the integration does not convert them into human-readable label names.
 
 ### Options and behavior
-
-Show instructions
 
 
 | Option / Python argument        | Kaggle                             | Hugging Face                 |
@@ -400,28 +461,25 @@ Show instructions
 Import one Kaggle file with an explicit schema and table name:
 
 ```bash
-kaggle-iris uciml/iris --file Iris.csv --schema SQLUser --table Flowers
+iristool-kaggle uciml/iris --file Iris.csv --schema SQLUser --table Flowers
 ```
 
 Import only the first 10 rows of a Hugging Face split from its `main` revision:
 
 ```bash
-hf-iris scikit-learn/iris --split 'train[:10]' --revision main --table IrisSample
+iristool-hf scikit-learn/iris --split 'train[:10]' --revision main --table IrisSample
 ```
 
 Choose a named Hugging Face configuration and its validation split:
 
 ```bash
-hf-iris stanfordnlp/sst2 --config default --split validation --table Sentiment
+iristool-hf stanfordnlp/sst2 --config default --split validation --table Sentiment
 ```
 
-These create new tables. To replace an existing target, add `--replace`;
-**this deletes its previous data**. `main` follows the repository's branch;
-use a commit ID with `--revision` when you need a fixed revision.
+These create new tables. To replace an existing target, add `--replace`; **this deletes its previous data**. `main` follows the repository's branch; use a commit ID with `--revision` when you need a fixed revision.
 
 **Python example** — reuse the `connection` dictionary from the quick start.
-Pass pandas CSV options through `read_csv_kwargs`; here, `Id` is read as text
-instead of being inferred as an integer:
+Pass pandas CSV options through `read_csv_kwargs`; here, `Id` is read as text instead of being inferred as an integer:
 
 ```python
 from iristool import IRIStool
@@ -438,13 +496,77 @@ with IRIStool(**connection) as db:
     )
 ```
 
-iristool uses the resulting pandas dtypes to infer SQL types. In Python,
-`replace=True` has the same destructive replacement behavior as `--replace`.
+iristool uses the resulting pandas dtypes to infer SQL types. In Python, `replace=True` has the same destructive replacement behavior as `--replace`.
 
+## Export a table
+
+Save a table as CSV, Excel, or JSON
+
+**Command line** — [load `.env`](#configure-and-load-env), then select the table,
+schema, and output file:
+
+```bash
+iristool-export KaggleIris iris.csv --schema SQLUser
+iristool-export KaggleIris iris.xlsx --schema SQLUser
+iristool-export KaggleIris iris.json --schema SQLUser
+```
+
+The schema defaults to `SQLUser`. The output extension selects the format.
+Connection settings come from `IRIS_*`, just like the import commands.
+Use `--overwrite` to replace an existing **output file**; the source table stays
+unchanged. Errors print `Export failed: ...` and exit with status `1`.
+
+```bash
+iristool-export KaggleIris iris.csv --schema SQLUser --overwrite
+iristool-export --help
+# From this source checkout, install the new command and run it:
+uv sync --all-extras
+uv run --all-extras iristool-export KaggleIris iris.csv --schema SQLUser
+```
+
+**Python**
+
+`export_table()` is part of the core. It reads the whole table into a pandas DataFrame and selects the writer from the output extension:
+
+```python
+with IRIStool(**connection) as db:
+    db.export_table("KaggleIris", "iris.csv")
+    db.export_table("KaggleIris", "iris.xlsx", sheet_name="Iris")
+    db.export_table("KaggleIris", "iris.json", indent=2)
+```
+
+Use the `KaggleIris` table imported above, or replace its name with your table.
+`table_schema="SQLUser"` is the default; pass another schema separately.
+The method returns a `pathlib.Path`. Output directories must already exist.
+CSV uses UTF-8, CSV/XLSX omit the pandas index, and JSON is an array of row
+objects with ISO dates and JSON `null` for missing values.
+
+CSV and JSON need no additional dependency. For XLSX, install Excel support:
+
+```bash
+python -m pip install 'iristool[excel]'
+# Or in an activated standalone uv environment:
+uv pip install 'iristool[excel]'
+# Local development before release:
+uv sync --all-extras
+```
+
+Combine extras with `'iristool[integrations,excel]'` to include both source SDKs
+and Excel. The `integrations` extra alone still includes only source SDKs.
+
+An existing output file causes an error. To replace it explicitly:
+
+```python
+with IRIStool(**connection) as db:
+    db.export_table("KaggleIris", "iris.csv", overwrite=True, sep=";")
+```
+
+Extra keyword arguments go to pandas `to_csv`, `to_excel`, or `to_json`. The entire table must fit in memory; no row ordering is guaranteed. For a filtered or ordered export, use `db.fetch(...)` and the pandas writer directly.
+An output failure can leave a partial file; `overwrite=True` replaces the previous file once writing starts. This does not change the source table.
 
 ## Examples
 
-Python examples
+**Python examples**
 
 The following examples reuse the `connection` dictionary from the quick start.
 
@@ -570,40 +692,39 @@ For object columns, inference recognizes dates/times or falls back to text lengt
 
 ## API reference
 
-Available methods
+**Available methods**
 
 Most table helpers default to `table_schema="SQLUser"`. See the method docstrings for complete signatures and options.
 
 
-| Method                                                   | Purpose                                             |
-| -------------------------------------------------------- | --------------------------------------------------- |
-| `df_to_table(df, table_name, ...)`                       | Create a table and import a DataFrame               |
-| `fetch(sql, parameters=None)`                            | Return query results as a DataFrame                 |
-| `insert_row(table_name, values)`                         | Insert one dictionary of values                     |
-| `insert_many(table_name, rows)`                          | Insert dictionaries in a batch                      |
-| `update(table_name, new_values, filters)`                | Update matching rows                                |
-| `update_many(table_name, updates)`                       | Apply a list of `(new_values, filters)` pairs       |
-| `create_table(table_name, columns, ...)`                 | Create a table from SQL type declarations           |
-| `add_columns(table_name, new_columns)`                   | Add columns to an existing table                    |
-| `drop_table(table_name, ...)`                            | Drop a table, or a view with `view_or_table="view"` |
-| `table_exists(table_name)`                               | Check whether a table or view exists                |
-| `describe_table(table_name)`                             | Return column and index metadata                    |
-| `create_index(index_name, table_name, column_name, ...)` | Create an index                                     |
-| `index_exists(table_name, index_name)`                   | Check index metadata                                |
-| `create_view(view_name, sql, ...)`                       | Create a SQL view                                   |
-| `views_using_table(table_name)`                          | List dependent views                                |
-| `show_namespace_tables(...)`                             | List tables, with optional name/schema filters      |
-| `show_namespace_schemas()`                               | List schemas containing base tables                 |
-| `close()`                                                | Close the connection explicitly                     |
+| Method                                                                              | Purpose                                                       |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `df_to_table(df, table_name, ...)`                                                  | Create a table and import a DataFrame                         |
+| `export_table(table_name, path, table_schema="SQLUser", overwrite=False, **kwargs)` | Export a table to CSV/XLSX/JSON; refuse overwrites by default |
+| `fetch(sql, parameters=None)`                                                       | Return query results as a DataFrame                           |
+| `insert_row(table_name, values)`                                                    | Insert one dictionary of values                               |
+| `insert_many(table_name, rows)`                                                     | Insert dictionaries in a batch                                |
+| `update(table_name, new_values, filters)`                                           | Update matching rows                                          |
+| `update_many(table_name, updates)`                                                  | Apply a list of `(new_values, filters)` pairs                 |
+| `create_table(table_name, columns, ...)`                                            | Create a table from SQL type declarations                     |
+| `add_columns(table_name, new_columns)`                                              | Add columns to an existing table                              |
+| `drop_table(table_name, ...)`                                                       | Drop a table, or a view with `view_or_table="view"`           |
+| `table_exists(table_name)`                                                          | Check whether a table or view exists                          |
+| `describe_table(table_name)`                                                        | Return column and index metadata                              |
+| `create_index(index_name, table_name, column_name, ...)`                            | Create an index                                               |
+| `index_exists(table_name, index_name)`                                              | Check index metadata                                          |
+| `create_view(view_name, sql, ...)`                                                  | Create a SQL view                                             |
+| `views_using_table(table_name)`                                                     | List dependent views                                          |
+| `show_namespace_tables(...)`                                                        | List tables, with optional name/schema filters                |
+| `show_namespace_schemas()`                                                          | List schemas containing base tables                           |
+| `close()`                                                                           | Close the connection explicitly                               |
 
 
 
 
 ## Development and testing
 
-The commands in this section test the local source checkout. To test the
-published package instead, use the isolated PyPI environment described in
-[installation](#installation) and the dataset import examples above.
+The commands in this section test the local source checkout. To test the published package instead, use the isolated PyPI environment described in [installation](#installation) and the dataset import examples above.
 
 Local setup, Docker, and test commands
 
@@ -708,6 +829,8 @@ Common problems and solutions
 | Timezone-aware datetime rejected        | Convert to the desired timezone, then remove timezone information                                      |
 
 
+
+
 ## Project layout
 
 Repository files
@@ -721,6 +844,7 @@ Repository files
 ├── tests/
 │   ├── test_iristool.py    Unit tests
 │   └── test_iris_integration.py  Opt-in live IRIS tests
+├── .github/workflows/publish.yml  Tests, build, and tag-triggered PyPI publishing
 ├── docs/
 │   ├── authentication.md   Kaggle and Hugging Face login and tokens
 │   ├── DEV.md              Guide to adding dataset sources

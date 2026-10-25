@@ -20,7 +20,7 @@ the dependencies for the features you want to test:
 | `uv sync`                     | iristool, pandas, the IRIS driver, and their dependencies; no source SDKs   |
 | `uv sync --extra kaggle`      | The base installation plus `kagglehub` and its dependencies                 |
 | `uv sync --extra huggingface` | The base installation plus `datasets` and its dependencies                  |
-| `uv sync --all-extras`        | The base installation plus every declared extra; currently both source SDKs |
+| `uv sync --all-extras`        | The base installation plus every declared extra; both source SDKs and Excel support |
 
 
 These commands create or update `.venv` and install iristool in editable mode,
@@ -32,7 +32,7 @@ needed by the selected configuration: switching from `--all-extras` to
 `--extra kaggle` removes packages needed only by Hugging Face support.
 
 When running commands in this checkout, request the same extras, for example
-`uv run --extra kaggle kaggle-iris --help` or
+`uv run --extra kaggle iristool-kaggle --help` or
 `uv run --all-extras python -m unittest discover -s tests -v -b`.
 Plain `uv run` does not request the checkout's optional extras. Avoid mixing
 pip installs into this uv-managed environment. Quote bracketed package names
@@ -134,7 +134,9 @@ conversion. The Hugging Face adapter currently rejects them. Each DataFrame
 must fit in memory; do not promise streaming unless it is implemented and tested.
 
 Use the provider's authentication and cache mechanisms. Document token setup,
-private/gated access, and license acceptance where applicable. Never commit
+private/gated access, and license acceptance where applicable. Use
+`_raise_if_access_denied` for HTTP 401/403 or wrapped gated-access errors so users
+get the dataset URL, browser confirmation steps, and an instruction to retry. Never commit
 credentials, print tokens, or bypass source access restrictions. For downloaded
 files, validate paths and prevent selection outside the download directory.
 
@@ -170,7 +172,7 @@ In `pyproject.toml`:
   SDK version range.
 2. Include the same dependency in the existing `integrations` extra.
 3. Add a `[project.scripts]` entry such as
-  `example-iris = "iristool.integrations.cli:main_example"`.
+  `iristool-example = "iristool.integrations.cli:main_example"`.
 
 Keep source SDKs out of the base `dependencies`. Importing `iristool` or
 `iristool.integrations` must work without any source extras installed.

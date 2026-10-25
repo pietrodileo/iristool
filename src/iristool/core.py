@@ -5,6 +5,7 @@ import pandas as pd
 import logging
 from pandas.api import types as ptypes
 import datetime as dt
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -171,16 +172,49 @@ class IRIStool:
                     cursor.execute(sql)
                 # Fetch all rows at once
                 rows = cursor.fetchall()
-                if not rows:
-                    return pd.DataFrame()
                 # Extract column names from cursor description
-                columns = [col[0] for col in cursor.description]
+                columns = [col[0] for col in (cursor.description or [])]
                 # Create DataFrame in one shot
                 df = pd.DataFrame(rows, columns=columns)
                 return df
         except Exception as e:
             print(f"Error executing query: {e}")
             raise   # re-raise to let caller handle it
+
+    def export_table(self, table_name: str, path, table_schema: str = "SQLUser",
+                     *, overwrite: bool = False, **kwargs) -> Path:
+        """Export a whole table to .csv, .xlsx or .json using pandas.
+
+        CSV/XLSX omit the pandas index; JSON defaults to records with ISO dates.
+        kwargs are passed to the corresponding pandas writer. XLSX requires
+        iristool[excel]. Existing files fail unless overwrite=True. The table
+        is loaded into memory; this method does not close the connection.
+        Returns the output Path. Parent directories must already exist.
+        """
+        path = Path(path)
+        suffix = path.suffix.lower()
+        if suffix not in {".csv", ".xlsx", ".json"}:
+            raise ValueError("Choose a .csv, .xlsx or .json output file.")
+        self.validate_table_name(table_name, table_schema)
+        if path.exists() and not overwrite:
+            raise FileExistsError(f"Output already exists: {path}. Use overwrite=True to replace it.")
+        if suffix == ".xlsx":
+            try:
+                import openpyxl  # noqa: F401
+            except ImportError as exc:
+                raise ImportError('Install Excel support with: pip install "iristool[excel]"') from exc
+        frame = self.fetch(f"SELECT * FROM {self._identifier(table_schema)}.{self._identifier(table_name)}")
+        mode = "w" if overwrite else "x"
+        if suffix == ".xlsx":
+            with path.open(mode + "b") as output:
+                frame.to_excel(output, **{"index": False, "engine": "openpyxl", **kwargs})
+        else:
+            with path.open(mode, encoding="utf-8", newline="") as output:
+                if suffix == ".csv":
+                    frame.to_csv(output, **{"index": False, **kwargs})
+                else:
+                    frame.to_json(output, **{"orient": "records", "date_format": "iso", **kwargs})
+        return path
 
     def insert_row(self, table_name: str, values: dict, table_schema: str = "SQLUser") -> None:
         """

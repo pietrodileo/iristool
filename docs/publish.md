@@ -1,91 +1,100 @@
-# Publish to PyPI
+# Build and publish to PyPI
 
-Once the project is ready to share, build and upload it so anyone can install it with `pip install iristool` or `uv pip install iristool`. Install [uv](https://docs.astral.sh/uv/getting-started/installation/) first, run the tests described in the [README](../README.md#development-and-testing), and execute these commands from the repository root.
+The latest published release is **0.3.1**. New exports, CLI names, and access-error
+instructions in this branch are for the next release. Keep the current version
+until you prepare that release; never upload changed files as 0.3.1 again.
 
-## Current release: 0.3.1
+## Automatic releases from Git tags
 
-Version **0.3.1** is published on PyPI. This is a patch release with no major
-API changes. The package includes optional `kaggle`, `huggingface`, and
-`integrations` extras, plus the `kaggle-iris` and `hf-iris` commands.
-`pyproject.toml` and the iristool entry in `uv.lock` should both say `0.3.1`.
+`[.github/workflows/publish.yml](../.github/workflows/publish.yml)` runs unit tests
+with all extras, builds the wheel/source archive, and checks that the wheel's
+base install exposes the new CLI commands. Pull requests and manual runs build
+and test only. Pushing a `vVERSION` tag also publishes the resulting artifacts
+to PyPI, provided the tag matches `pyproject.toml` exactly.
 
-To verify this release independently of the source checkout:
+### One-time setup
+
+1. In the GitHub repository settings for `pietrodileo/iristool`, create an
+  environment named `pypi`. You can restrict its deployment tags to `v*`.
+   Required reviewers are optional; adding them pauses publishing for approval.
+2. Open [iristool's PyPI publishing settings](https://pypi.org/manage/project/iristool/settings/publishing/)
+  and add a **GitHub Trusted Publisher** with these exact values:
+
+  | Field             | Value         |
+  | ----------------- | ------------- |
+  | Owner             | `pietrodileo` |
+  | Repository        | `iristool`    |
+  | Workflow filename | `publish.yml` |
+  | Environment       | `pypi`        |
+
+
+The publish job requests a short-lived identity token (`id-token: write`).
+No `PYPI_API_TOKEN` secret is needed. This setup is required before a tag can
+publish successfully. See [PyPI's setup guide](https://docs.pypi.org/trusted-publishers/adding-a-publisher/) and [publishing workflow guide](https://docs.pypi.org/trusted-publishers/using-a-publisher/).
+
+### Release the next version
+
+Run from this repository after the changes have been reviewed and merged into
+the branch you release from. For the next feature release, starting at 0.3.1:
+
+```bash
+uv version --bump minor   # 0.3.1 -> 0.4.0; also updates uv.lock
+uv run --locked --all-extras python -m unittest discover -s tests -v -b
+```
+
+Run the opt-in IRIS/source checks in the
+[README](../README.md#development-and-testing) before releasing too. The GitHub
+workflow runs offline unit tests; it does not start IRIS or use source tokens.
+Update the README release notice to 0.4.0 and remove the unreleased-feature
+qualifications, then commit `pyproject.toml`, `uv.lock`, and those docs:
+
+```bash
+git add pyproject.toml uv.lock README.md docs/publish.md
+git commit -m "Release 0.4.0"
+git push
+# This tag push starts the PyPI upload automatically:
+git tag -a v0.4.0 -m "iristool 0.4.0"
+git push origin v0.4.0
+```
+
+Use your actual version in every command. A mismatched tag fails before
+publishing. Watch the **Build and publish to PyPI** workflow in GitHub Actions.
+Published versions cannot be overwritten; fix an uploaded release with a new
+version and new tag. Do not move an already published tag to different code.
+
+### Verify the published package
+
+Use a fresh environment, separate from local source development:
 
 ```bash
 uv venv .venv-pypi
 source .venv-pypi/bin/activate
-uv pip install 'iristool[integrations]==0.3.1'
+uv pip install 'iristool[integrations,excel]==0.4.0'
 uv pip show iristool
-kaggle-iris --help
-hf-iris --help
+iristool-kaggle --help
+iristool-hf --help
+iristool-export --help
 ```
 
-Use the README's `.env` setup and public dataset examples to test against IRIS.
-Verify a base install without extras in another fresh environment as well:
-`uv pip install 'iristool==0.3.1'`. It must not require either source SDK.
+Replace 0.4.0 with the version you actually published. Load `.env` as described
+in the README to test imports/exports against IRIS. Also test a fresh base-only
+install: it must not install KaggleHub, datasets, or openpyxl.
 
-Do not republish changed files as 0.3.1. The steps below are for the next release.
-Before releasing, run the suite with `uv run --all-extras`, including the source
-integration flags described in the README. Inspect the built wheel: it must
-include `iristool/integrations/`, both CLI entry points, and optional extras.
-Publishing is a separate explicit action; installation and testing do not upload
-anything to PyPI.
+## Local builds and manual publishing
 
-## 1. Bump the version
-
-Every new release needs a new version. Choose **one** command; these examples start from `0.3.1`:
+To inspect artifacts without publishing:
 
 ```bash
-uv version --bump patch    # 0.3.1 -> 0.3.2
-uv version --bump minor    # 0.3.1 -> 0.4.0
-uv version --bump major    # 0.3.1 -> 1.0.0
-uv version 1.2.3          # set an explicit version
-uv version                # just print the current version
+uv build --clear
 ```
 
-`uv version` updates `pyproject.toml` and, by default, locks and syncs the project, creating or updating `uv.lock`. Already uploaded files cannot be replaced with changed contents under the same filenames.
+The wheel must include `iristool/integrations/`, the `iristool-kaggle` and
+`iristool-hf` and `iristool-export` entry points, the `excel` extra, and
+`IRIStool.export_table`. Only the source
+archive and wheel belong in `dist/` when uploading.
 
-## 2. Build distributable artifacts
-
-```bash
-uv build                  # writes the source archive and wheel into dist/
-```
-
-Remove older release artifacts from `dist/` before building, or use `uv build --clear` to clear the output directory first. This keeps the next upload limited to the intended release.
-
-## 3. Get a PyPI token
-
-Log in to [PyPI](https://pypi.org/manage/account/token/) and create an API token. Use a project-scoped token once `iristool` exists; use an account-wide token for the first upload. The token starts with `pypi-`.
-
-## 4. Publish with the token
-
-Export the token as `UV_PUBLISH_TOKEN`; `uv publish` reads it automatically. Keep the token private and avoid saving it in source control or shared shell history.
-
-Linux / macOS / Git Bash, with Python available:
-
-```bash
-# Linux / macOS / Git Bash
-export UV_PUBLISH_TOKEN=pypi-<your-token>
-uv publish
-```
-
-PowerShell:
-
-```powershell
-# PowerShell
-$env:UV_PUBLISH_TOKEN = "pypi-<your-token>"
-uv publish
-```
-
-## 5. Verify the public install
-
-Install the published package from PyPI and display its installed version:
-
-```bash
-uv pip install --upgrade iristool
-uv pip show iristool
-```
-
-Run this in a fresh virtual environment to avoid using an existing local or editable installation. Check the `Version` field against the release you uploaded. This checks package metadata, not an IRIS connection.
-
-See the [uv publishing guide](https://docs.astral.sh/uv/guides/package/) for build, token authentication, and public-install verification details.
+If you choose manual publishing instead of the tag workflow, obtain a
+project-scoped [PyPI API token](https://pypi.org/manage/account/token/), supply it
+as `UV_PUBLISH_TOKEN` through your environment, and run `uv publish`.
+Keep the token out of Git and shared shell history. Do not use both publishing
+paths for the same version. See the [uv publishing guide](https://docs.astral.sh/uv/guides/package/).

@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 
 from pandas.api.types import is_object_dtype, is_scalar
 
-from ._shared import _import_frames, _name, _validate_target
+from ._shared import _import_frames, _name, _validate_target, _raise_if_access_denied
 
 
 def import_dataset(db, dataset, *, split="train", config=None, revision=None,
@@ -29,7 +29,11 @@ def import_dataset(db, dataset, *, split="train", config=None, revision=None,
         raise ValueError("Use a Hugging Face repository ID and a non-empty split name.")
     _validate_target(table, schema)
     name = table or _name("HF_" + "_".join(filter(None, [dataset.split("/")[-1], config, split])))
-    frame = load_dataset(dataset, name=config, split=split, revision=revision).to_pandas()
+    try:
+        frame = load_dataset(dataset, name=config, split=split, revision=revision).to_pandas()
+    except Exception as exc:
+        _raise_if_access_denied(exc, f"https://huggingface.co/datasets/{dataset}", "HF_TOKEN")
+        raise
     for column, values in frame.items():
         if is_object_dtype(values.dtype) and not values.map(is_scalar).all():
             raise ValueError(f"Column {column!r} contains nested or media values. "
