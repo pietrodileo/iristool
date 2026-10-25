@@ -1,22 +1,8 @@
 """One-command imports; credentials come from IRIS_* environment variables."""
 
 import argparse
-import os
-
-from iristool import IRIStool
+from iristool.cli import _connection
 from . import import_kaggle, import_huggingface
-
-
-def _connection(default_port=1972, **overrides):
-    settings = {
-        "host": os.getenv("IRIS_HOST", "localhost"),
-        "port": os.getenv("IRIS_PORT", str(default_port)),
-        "namespace": os.getenv("IRIS_NAMESPACE", "USER"),
-        "username": os.getenv("IRIS_USER", "_SYSTEM"),
-        "password": os.getenv("IRIS_PASSWORD", "SYS"),
-    }
-    settings.update(overrides)
-    return IRIStool(**settings)
 
 
 def _run(parser, importer, default_port):

@@ -20,6 +20,7 @@ huggingface = ["datasets>=4,<5"]
 integrations = ["kagglehub>=0.3.13,<1", "datasets>=4,<5"]
 
 [project.scripts]
+iristool-export = "iristool.cli:main_export"
 iristool-kaggle = "iristool.integrations.cli:main_kaggle"
 iristool-hf = "iristool.integrations.cli:main_huggingface"
 

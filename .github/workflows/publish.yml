@@ -49,6 +49,7 @@ jobs:
           /tmp/iristool-wheel/bin/python -c 'from iristool import IRIStool; assert callable(IRIStool.export_table)'
           /tmp/iristool-wheel/bin/iristool-kaggle --help
           /tmp/iristool-wheel/bin/iristool-hf --help
+          /tmp/iristool-wheel/bin/iristool-export --help
       - uses: actions/upload-artifact@v4
         with:
           name: distributions

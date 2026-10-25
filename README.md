@@ -502,6 +502,30 @@ iristool uses the resulting pandas dtypes to infer SQL types. In Python, `replac
 
 Save a table as CSV, Excel, or JSON
 
+**Command line** — [load `.env`](#configure-and-load-env), then select the table,
+schema, and output file:
+
+```bash
+iristool-export KaggleIris iris.csv --schema SQLUser
+iristool-export KaggleIris iris.xlsx --schema SQLUser
+iristool-export KaggleIris iris.json --schema SQLUser
+```
+
+The schema defaults to `SQLUser`. The output extension selects the format.
+Connection settings come from `IRIS_*`, just like the import commands.
+Use `--overwrite` to replace an existing **output file**; the source table stays
+unchanged. Errors print `Export failed: ...` and exit with status `1`.
+
+```bash
+iristool-export KaggleIris iris.csv --schema SQLUser --overwrite
+iristool-export --help
+# From this source checkout, install the new command and run it:
+uv sync --all-extras
+uv run --all-extras iristool-export KaggleIris iris.csv --schema SQLUser
+```
+
+**Python**
+
 `export_table()` is part of the core. It reads the whole table into a pandas DataFrame and selects the writer from the output extension:
 
 ```python

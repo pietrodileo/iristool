@@ -6,7 +6,7 @@ until you prepare that release; never upload changed files as 0.3.1 again.
 
 ## Automatic releases from Git tags
 
-[`.github/workflows/publish.yml`](../.github/workflows/publish.yml) runs unit tests
+`[.github/workflows/publish.yml](../.github/workflows/publish.yml)` runs unit tests
 with all extras, builds the wheel/source archive, and checks that the wheel's
 base install exposes the new CLI commands. Pull requests and manual runs build
 and test only. Pushing a `vVERSION` tag also publishes the resulting artifacts
@@ -15,22 +15,22 @@ to PyPI, provided the tag matches `pyproject.toml` exactly.
 ### One-time setup
 
 1. In the GitHub repository settings for `pietrodileo/iristool`, create an
-   environment named **`pypi`**. You can restrict its deployment tags to `v*`.
+  environment named `pypi`. You can restrict its deployment tags to `v*`.
    Required reviewers are optional; adding them pauses publishing for approval.
 2. Open [iristool's PyPI publishing settings](https://pypi.org/manage/project/iristool/settings/publishing/)
-   and add a **GitHub Trusted Publisher** with these exact values:
+  and add a **GitHub Trusted Publisher** with these exact values:
 
-   | Field | Value |
-   | --- | --- |
-   | Owner | `pietrodileo` |
-   | Repository | `iristool` |
-   | Workflow filename | `publish.yml` |
-   | Environment | `pypi` |
+  | Field             | Value         |
+  | ----------------- | ------------- |
+  | Owner             | `pietrodileo` |
+  | Repository        | `iristool`    |
+  | Workflow filename | `publish.yml` |
+  | Environment       | `pypi`        |
+
 
 The publish job requests a short-lived identity token (`id-token: write`).
 No `PYPI_API_TOKEN` secret is needed. This setup is required before a tag can
-publish successfully. See [PyPI's setup guide](https://docs.pypi.org/trusted-publishers/adding-a-publisher/)
-and [publishing workflow guide](https://docs.pypi.org/trusted-publishers/using-a-publisher/).
+publish successfully. See [PyPI's setup guide](https://docs.pypi.org/trusted-publishers/adding-a-publisher/) and [publishing workflow guide](https://docs.pypi.org/trusted-publishers/using-a-publisher/).
 
 ### Release the next version
 
@@ -73,6 +73,7 @@ uv pip install 'iristool[integrations,excel]==0.4.0'
 uv pip show iristool
 iristool-kaggle --help
 iristool-hf --help
+iristool-export --help
 ```
 
 Replace 0.4.0 with the version you actually published. Load `.env` as described
@@ -88,7 +89,8 @@ uv build --clear
 ```
 
 The wheel must include `iristool/integrations/`, the `iristool-kaggle` and
-`iristool-hf` entry points, the `excel` extra, and `IRIStool.export_table`. Only the source
+`iristool-hf` and `iristool-export` entry points, the `excel` extra, and
+`IRIStool.export_table`. Only the source
 archive and wheel belong in `dist/` when uploading.
 
 If you choose manual publishing instead of the tag workflow, obtain a
