@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 
 import pandas as pd
 
-from ._shared import _import_frames, _name, _validate_target
+from ._shared import _import_frames, _name, _validate_target, _raise_if_access_denied
 
 
 def _handle(dataset):
@@ -42,7 +42,12 @@ def import_dataset(db, dataset, *, file=None, table=None, schema="SQLUser", repl
             raise ValueError("Only CSV and TSV files are supported.")
     _validate_target(table, schema)
 
-    downloaded = Path(kagglehub.dataset_download(dataset, **({"path": file} if file else {})))
+    try:
+        downloaded = Path(kagglehub.dataset_download(dataset, **({"path": file} if file else {})))
+    except Exception as exc:
+        _raise_if_access_denied(exc, f"https://www.kaggle.com/datasets/{dataset.split('/versions/')[0]}",
+                                "KAGGLE_API_TOKEN")
+        raise
     files = [downloaded] if downloaded.is_file() else sorted(
         p for p in downloaded.rglob("*") if p.is_file() and p.suffix.lower() in {".csv", ".tsv"}
     )

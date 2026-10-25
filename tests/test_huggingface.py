@@ -72,7 +72,7 @@ class HuggingFaceTests(unittest.TestCase):
         self.db.df_to_table.assert_not_called()
 
     def test_cli_forwards_options(self):
-        with patch("iristool.integrations.cli._connection", return_value=Mock(__enter__=Mock(return_value=self.db), __exit__=Mock(return_value=False))), patch("sys.argv", ["hf-iris", "owner/data", "--split", "test", "--config", "en",
+        with patch("iristool.integrations.cli._connection", return_value=Mock(__enter__=Mock(return_value=self.db), __exit__=Mock(return_value=False))), patch("sys.argv", ["iristool-hf", "owner/data", "--split", "test", "--config", "en",
                                 "--revision", "v1", "--table", "Reviews", "--replace"]):
             main()
         self.load.assert_called_once_with("owner/data", name="en", split="test", revision="v1")
@@ -80,7 +80,7 @@ class HuggingFaceTests(unittest.TestCase):
 
     def test_cli_failure_is_nonzero(self):
         self.load.side_effect = RuntimeError("Access denied")
-        with patch("iristool.integrations.cli._connection", return_value=Mock(__enter__=Mock(return_value=self.db), __exit__=Mock(return_value=False))), patch("sys.argv", ["hf-iris", "owner/data"]), contextlib.redirect_stderr(io.StringIO()) as err:
+        with patch("iristool.integrations.cli._connection", return_value=Mock(__enter__=Mock(return_value=self.db), __exit__=Mock(return_value=False))), patch("sys.argv", ["iristool-hf", "owner/data"]), contextlib.redirect_stderr(io.StringIO()) as err:
             with self.assertRaises(SystemExit) as raised:
                 main()
         self.assertEqual(raised.exception.code, 1)

@@ -73,6 +73,55 @@ set `HF_HOME` to relocate it. See the
 [authentication guide](https://huggingface.co/docs/huggingface_hub/en/quick-start#authentication)
 and [download guide](https://huggingface.co/docs/hub/en/datasets-downloading).
 
+## When browser approval is required
+
+A token authenticates your account; it does not accept a dataset's conditions
+or grant access by itself. For [gated Hugging Face datasets](https://huggingface.co/docs/hub/en/datasets-gated),
+request access on the dataset page in your browser. Approval can be immediate
+or require the owner's review. [KaggleHub](https://github.com/Kaggle/kagglehub#authenticate)
+also requires credentials for private or consent-required datasets; open the
+specific dataset page and complete any consent step first.
+
+When a download raises HTTP 401/403, a gated-repository error, or a Kaggle
+unauthenticated error, iristool stops processing before importing any tables.
+The CLI exits with status **1** and displays an actionable error like:
+
+```text
+Import failed: Dataset processing failed: access denied. Open <dataset URL>
+in your browser, sign in and confirm the terms or request access. Wait for
+approval if required. Then set HF_TOKEN (or log in with the source SDK) using
+the approved account and repeat the same command. No dataset tables were imported.
+```
+
+For Kaggle, the message names `KAGGLE_API_TOKEN` instead. This also applies with
+`--replace`: no existing target table is deleted when the download is denied.
+Python callers receive a `PermissionError` with the same instructions and the
+original source exception as its cause. Unrelated network or parsing failures
+retain their original errors.
+
+After accepting terms or receiving approval:
+
+1. Use a token belonging to the **same account** that received access.
+2. Save it in `.env`, then reload the file (`set -a; source .env; set +a`).
+3. Repeat the exact import command you ran before.
+
+iristool does not open a browser or accept terms automatically. A 401/403 can
+also indicate an invalid token or missing private-dataset permission, so check
+those if confirming access does not resolve the error. Kaggle competition-rule
+acceptance is a separate flow: competition URLs are not supported by this
+dataset adapter. Access approval does not change format support; nested/media
+Hugging Face datasets still need flattening before import.
+
+A manual anonymous check against [LMSYS-Chat-1M](https://huggingface.co/datasets/lmsys/lmsys-chat-1m)
+verified this browser-confirmation error without importing any tables. This is
+an access-denial check, not an import example: that dataset contains nested
+conversation values and needs preprocessing after access is granted.
+
+The access-error tests simulate the SDKs' 401/403 and wrapped gated errors;
+they require no account or browser approval. An end-to-end approval test
+requires an account you control and a dataset for which you can accept the
+terms; it is not part of unattended CI.
+
 ## Credentials and troubleshooting
 
 - Keep tokens out of source code, Git, notebooks, and command output. Use your

@@ -115,7 +115,7 @@ class ImportTests(unittest.TestCase):
 
     def test_cli_returns_nonzero_for_download_error(self):
         self.download.side_effect = RuntimeError("access denied")
-        with patch("iristool.integrations.cli._connection", return_value=MagicMock()), patch("sys.argv", ["kaggle-iris", "owner/data"]), contextlib.redirect_stderr(io.StringIO()) as err:
+        with patch("iristool.integrations.cli._connection", return_value=MagicMock()), patch("sys.argv", ["iristool-kaggle", "owner/data"]), contextlib.redirect_stderr(io.StringIO()) as err:
             with self.assertRaises(SystemExit) as raised:
                 main()
         self.assertEqual(raised.exception.code, 1)
