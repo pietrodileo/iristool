@@ -87,8 +87,8 @@ To inspect artifacts without publishing:
 uv build --clear
 ```
 
-The wheel must include `iristool/integrations/`, the new CLI entry points and
-legacy aliases, the `excel` extra, and `IRIStool.export_table`. Only the source
+The wheel must include `iristool/integrations/`, the `iristool-kaggle` and
+`iristool-hf` entry points, the `excel` extra, and `IRIStool.export_table`. Only the source
 archive and wheel belong in `dist/` when uploading.
 
 If you choose manual publishing instead of the tag workflow, obtain a

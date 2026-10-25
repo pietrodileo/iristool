@@ -22,8 +22,6 @@ integrations = ["kagglehub>=0.3.13,<1", "datasets>=4,<5"]
 [project.scripts]
 iristool-kaggle = "iristool.integrations.cli:main_kaggle"
 iristool-hf = "iristool.integrations.cli:main_huggingface"
-kaggle-iris = "iristool.integrations.cli:main_kaggle"
-hf-iris = "iristool.integrations.cli:main_huggingface"
 
 [project.urls]
 Homepage = "https://github.com/pietrodileo/iristool"
