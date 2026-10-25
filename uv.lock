@@ -771,7 +771,7 @@ wheels = [
 
 [[package]]
 name = "iristool"
-version = "0.4.0"
+version = "0.4.1"
 source = { editable = "." }
 dependencies = [
     { name = "intersystems-irispython" },
@@ -788,10 +788,12 @@ huggingface = [
 ]
 integrations = [
     { name = "datasets" },
-    { name = "kagglehub" },
+    { name = "kagglehub", version = "1.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "kagglehub", version = "1.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 kaggle = [
-    { name = "kagglehub" },
+    { name = "kagglehub", version = "1.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "kagglehub", version = "1.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 
 [package.metadata]
@@ -799,8 +801,10 @@ requires-dist = [
     { name = "datasets", marker = "extra == 'huggingface'", specifier = ">=4,<5" },
     { name = "datasets", marker = "extra == 'integrations'", specifier = ">=4,<5" },
     { name = "intersystems-irispython", specifier = ">=5.2.1,<6" },
-    { name = "kagglehub", marker = "extra == 'integrations'", specifier = ">=0.3.13,<1" },
-    { name = "kagglehub", marker = "extra == 'kaggle'", specifier = ">=0.3.13,<1" },
+    { name = "kagglehub", marker = "python_full_version >= '3.11' and extra == 'integrations'", specifier = ">=1.0.3,<2" },
+    { name = "kagglehub", marker = "python_full_version >= '3.11' and extra == 'kaggle'", specifier = ">=1.0.3,<2" },
+    { name = "kagglehub", marker = "python_full_version < '3.11' and extra == 'integrations'", specifier = ">=1.0.2,<1.0.3" },
+    { name = "kagglehub", marker = "python_full_version < '3.11' and extra == 'kaggle'", specifier = ">=1.0.2,<1.0.3" },
     { name = "openpyxl", marker = "extra == 'excel'", specifier = ">=3.1.5,<4" },
     { name = "pandas", specifier = ">=2.2,<4" },
 ]
@@ -808,19 +812,49 @@ provides-extras = ["excel", "kaggle", "huggingface", "integrations"]
 
 [[package]]
 name = "kagglehub"
-version = "0.4.3"
+version = "1.0.2"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.11'",
+]
 dependencies = [
     { name = "kagglesdk", version = "0.1.28", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "kagglesdk", version = "0.1.38", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "packaging" },
-    { name = "pyyaml" },
-    { name = "requests" },
-    { name = "tqdm" },
+    { name = "packaging", marker = "python_full_version < '3.11'" },
+    { name = "pyyaml", marker = "python_full_version < '3.11'" },
+    { name = "requests", marker = "python_full_version < '3.11'" },
+    { name = "tqdm", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c6/5e/813a5bf20b96fcdf311505b74df071b5c50388871099a8890413ef1cdcd8/kagglehub-0.4.3.tar.gz", hash = "sha256:7969ae7574f5524dfa0f4fdb362229e1187cd5ea0dc0ef6e7ea5ca23478877ee", size = 117316, upload-time = "2026-02-06T21:21:47.076Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b5/b9/e1bdafdcdb98e8e5354b30959ed48f4a08ca2c2dc72c968c5b38c4baa1b5/kagglehub-1.0.2.tar.gz", hash = "sha256:08abae0c1e249904003ce6f23c189166e3032220478426a552c77c2edb08b93a", size = 117457, upload-time = "2026-06-09T17:14:05.313Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/82/87c9ea391564debad2cf9828fe3afd7777145f3650a65fe124893d8f3008/kagglehub-0.4.3-py3-none-any.whl", hash = "sha256:ff17b4b5c873898995ef1e02c90083f7f60dd82080aca20e98b47ac5362c7128", size = 70632, upload-time = "2026-02-06T21:21:45.553Z" },
+    { url = "https://files.pythonhosted.org/packages/61/1a/6b1293d0b091905e367f86771a7122e5f7f2729ab9f0f36a1617f7ad6c05/kagglehub-1.0.2-py3-none-any.whl", hash = "sha256:ffad2d79cfda9b06848e98cb0a4a48e286285cfba4aeadadc0b8dbd9bcadd372", size = 70645, upload-time = "2026-06-09T17:14:04.04Z" },
+]
+
+[[package]]
+name = "kagglehub"
+version = "1.0.3"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.14' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'win32'",
+    "python_full_version == '3.11.*' and sys_platform == 'win32'",
+    "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
+    "python_full_version == '3.11.*' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.11.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+]
+dependencies = [
+    { name = "certifi", marker = "python_full_version >= '3.11'" },
+    { name = "kagglesdk", version = "0.1.38", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "packaging", marker = "python_full_version >= '3.11'" },
+    { name = "pyyaml", marker = "python_full_version >= '3.11'" },
+    { name = "requests", marker = "python_full_version >= '3.11'" },
+    { name = "tqdm", marker = "python_full_version >= '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/60/a4/b8780c459360685fc3adf4588a1592be2329de13170302abe98c04f44099/kagglehub-1.0.3.tar.gz", hash = "sha256:1ce657f17f836992bf9c341d4b203380e33beed336dffff970af10457424778b", size = 124370, upload-time = "2026-10-21T23:02:33.551Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0e/49/008002e0bf9bb4cfca85ce5e44314aef39f9a33dd15e31904d659ebca2d8/kagglehub-1.0.3-py3-none-any.whl", hash = "sha256:332f667ea08a173f6fd8e379291b45fafce03351a32582e1500c247b41510d93", size = 73331, upload-time = "2026-10-21T23:02:32.326Z" },
 ]
 
 [[package]]

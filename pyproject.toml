@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iristool"
-version = "0.4.0"
+version = "0.4.1"
 description = "Simple pandas and SQL helpers for InterSystems IRIS"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,9 +15,16 @@ dependencies = ["pandas>=2.2,<4", "intersystems-irispython>=5.2.1,<6"]
 
 [project.optional-dependencies]
 excel = ["openpyxl>=3.1.5,<4"]
-kaggle = ["kagglehub>=0.3.13,<1"]
+kaggle = [
+    "kagglehub>=1.0.2,<1.0.3; python_version < '3.11'",
+    "kagglehub>=1.0.3,<2; python_version >= '3.11'",
+]
 huggingface = ["datasets>=4,<5"]
-integrations = ["kagglehub>=0.3.13,<1", "datasets>=4,<5"]
+integrations = [
+    "kagglehub>=1.0.2,<1.0.3; python_version < '3.11'",
+    "kagglehub>=1.0.3,<2; python_version >= '3.11'",
+    "datasets>=4,<5",
+]
 
 [project.scripts]
 iristool-export = "iristool.cli:main_export"

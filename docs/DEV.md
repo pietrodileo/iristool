@@ -38,6 +38,11 @@ Plain `uv run` does not request the checkout's optional extras. Avoid mixing
 pip installs into this uv-managed environment. Quote bracketed package names
 in shells such as zsh.
 
+Kaggle support uses `kagglehub>=1.0.3,<2` on Python 3.11 and newer.
+Python 3.10 uses KaggleHub 1.0.2 because newer releases require Python 3.11;
+the SDK may still show an update warning there. Use Python 3.11 or newer
+to run the current KaggleHub release.
+
 Alternatively, install the source in editable mode with pip:
 
 ```bash
