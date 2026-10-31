@@ -39,6 +39,12 @@ class HuggingFaceTests(unittest.TestCase):
         self.assertEqual(self.db.df_to_table.call_args.kwargs,
                          {"table_schema": "SQLUser", "exist_ok": False, "drop_if_exists": False})
 
+    def test_explicit_token_and_anonymous_mode(self):
+        for token in ('workspace-token', False):
+            self.load.reset_mock()
+            import_dataset(self.db, "owner/people", token=token)
+            self.assertEqual(self.load.call_args.kwargs['token'], token)
+
     def test_url_config_revision_split_and_connection_options(self):
         result = import_dataset(self.db, "https://huggingface.co/datasets/owner/people/", config="subset",
                                 split="test[:10]", revision="abc123", table="People",

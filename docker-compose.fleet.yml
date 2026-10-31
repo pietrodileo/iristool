@@ -1,0 +1,19 @@
+name: iristool-fleet
+
+services:
+  writable:
+    &iris
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: iris-tool-test:latest
+    pull_policy: never
+    init: true
+    ports:
+      - "127.0.0.1:9191:1972"
+      - "127.0.0.1:9192:52773"
+  readonly:
+    <<: *iris
+    ports:
+      - "127.0.0.1:9291:1972"
+      - "127.0.0.1:9292:52773"

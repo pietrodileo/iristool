@@ -9,10 +9,10 @@ from ._shared import _import_frames, _name, _validate_target, _raise_if_access_d
 
 
 def import_dataset(db, dataset, *, split="train", config=None, revision=None,
-                   table=None, schema="SQLUser", replace=False):
+                   table=None, schema="SQLUser", replace=False, token=None):
     """Load one Hugging Face split into IRIS; return {qualified_table: row_count}.
 
-    Authentication uses HF_TOKEN or the Hugging Face login cache. Connection
+    Authentication uses HF_TOKEN or the Hugging Face login cache. Pass token explicitly (False disables saved credentials). Connection
     ownership stays with the caller; db must be an open IRIStool connection.
     """
     try:
@@ -30,7 +30,8 @@ def import_dataset(db, dataset, *, split="train", config=None, revision=None,
     _validate_target(table, schema)
     name = table or _name("HF_" + "_".join(filter(None, [dataset.split("/")[-1], config, split])))
     try:
-        frame = load_dataset(dataset, name=config, split=split, revision=revision).to_pandas()
+        frame = load_dataset(dataset, name=config, split=split, revision=revision,
+                             **({"token": token} if token is not None else {})).to_pandas()
     except Exception as exc:
         _raise_if_access_denied(exc, f"https://huggingface.co/datasets/{dataset}", "HF_TOKEN")
         raise

@@ -1,6 +1,6 @@
 # iristool
 
-![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat)![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat)![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
+![Version 0.4.1](https://img.shields.io/badge/version-0.4.1-blue?style=flat) ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat) ![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat) ![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
 
 **iristool** is a small Python library for moving data between pandas and InterSystems IRIS. Create a SQL table from a DataFrame, run parameterized queries, and manage rows, tables, views, and indexes through one connection object.
 
@@ -8,7 +8,7 @@ Python runs in your own environment and connects to an existing IRIS server thro
 
 [Installation](#installation) · [Quick start](#quick-start) · [Dataset imports](#dataset-integrations) · [CLI](#import-datasets-from-the-command-line-cli) · [Export](#export-a-table) · [Examples](#examples) · [API](#api-reference) · [Testing](#development-and-testing)
 
-[Authentication](docs/authentication.md) · [Adding data sources](docs/DEV.md) · [Publishing](docs/publish.md)
+[MCP server](docs/mcp.md) · [Agent skill](#agent-skill) · [Authentication](docs/authentication.md) · [Adding data sources](docs/DEV.md) · [Publishing](docs/publish.md)
 
 ---
 
@@ -30,16 +30,59 @@ Optional [dataset integrations](#dataset-integrations) download Kaggle and Huggi
 
 The library handles the IRIS part of a data workflow. Read a CSV with pandas, download data with another library, or construct a DataFrame yourself, then pass it to `df_to_table()`.
 
+## MCP server
+
+An optional Python/FastMCP stdio server exposes fleet connections, table and index
+creation, local file transfers, and Hugging Face/Kaggle imports to MCP clients.
+Run it with uv/uvx and configure `.iristool.toml`; no standalone binary is needed.
+See [setup, tools, and limitations](docs/mcp.md).
+
+### Agent skill
+
+The optional [iristool-data-workflows skill](skills/iristool-data-workflows/SKILL.md)
+guides an agent through choosing a workspace and fleet connection, importing
+files or datasets, checking row counts and types, creating indexes, and exporting
+whole tables or subsets. It also explains when imports replace data and how to
+handle credentials.
+
+Install and configure the MCP server first. In Codex, you can download the skill
+by asking:
+
+> Use $skill-installer to install skills/iristool-data-workflows from the
+> GitHub repository pietrodileo/iristool.
+
+Specify a branch or tag if you want a particular version. After installation,
+ask Codex to use `$iristool-data-workflows` for your task.
+
+To install from a local checkout, copy the entire skill directory
+into the skills directory your agent uses. For agents that read `~/.agents/skills`,
+run this from the repository root:
+
+```bash
+mkdir -p ~/.agents/skills
+cp -R skills/iristool-data-workflows ~/.agents/skills/
+```
+
+Use your client's skill loader or reload the agent session if needed. Ask the
+agent to use `iristool-data-workflows`, for example:
+
+> Use the iristool-data-workflows skill to import data/people.csv into People on
+> the dev connection. Check the imported row count and column types.
+
+Keep `.iristool.toml` in the workspace where you run the task. Installing the
+Python package does not install the skill; the skill provides instructions,
+while the MCP server provides the tools and enforces permissions and file paths.
+
 ## Supported import and export formats
 
 
 | Operation                        | Supported input or output                                                                              | How it works                                                                                                                        |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Core import                      | pandas `DataFrame`                                                                                     | `db.df_to_table(df, "Table")`; the core receives a DataFrame, not a file path                                                       |
+| Core import                      | pandas `DataFrame`                                                                                     | `db.df_to_table(df, "Table")`; for an existing DataFrame; use `db.import_file()` for CSV/TSV, JSON/JSONL, XLSX files                                                       |
 | Local file import through pandas | CSV, TSV, XLSX, JSON, Parquet, and other formats pandas can read                                       | Read the file with pandas first, then pass the resulting DataFrame to `df_to_table()`; some readers require additional dependencies |
 | Kaggle import                    | **CSV (**`.csv`**) and TSV (**`.tsv`**) only**                                                         | `import_kaggle()` / `iristool-kaggle`; other file types in a downloaded dataset are ignored                                         |
 | Hugging Face import              | Dataset splits loadable by `datasets.load_dataset()`, including tabular CSV, JSON, and Parquet sources | `import_huggingface()` / `iristool-hf`; the split must convert to a DataFrame with SQL-compatible scalar columns                    |
-| Core export                      | **CSV (**`.csv`**), Excel (**`.xlsx`**), JSON (**`.json`**)**                                          | `db.export_table("Table", "output.csv")`; the extension selects the pandas writer                                                   |
+| Core export                      | **CSV (**`.csv`**), Excel (**`.xlsx`**), JSON (**`.json`**), JSONL (**`.jsonl`**)**                                          | `db.export_table("Table", "output.csv")`; the extension selects the pandas writer                                                   |
 
 
 CSV/JSON export needs only the base installation. XLSX import through pandas
@@ -49,7 +92,7 @@ separately or provided by the Hugging Face dependencies.
 
 Nested JSON objects, lists, images, and audio need preprocessing into scalar columns before SQL import and are not directly supported. JSON export defaults to an array of row objects. 
 
-Direct `export_table()` output is limited to the three extensions above:
+Direct `export_table()` output is limited to the four extensions above:
 `.tsv`, `.xls`, and `.parquet` are not accepted. For other export formats,
 retrieve a DataFrame with `db.fetch(...)` and use pandas directly.
 
@@ -66,6 +109,24 @@ See [dataset integrations](#dataset-integrations) and [export examples](#export-
 - An IRIS account with SQL permissions for the operations you need.
 
 
+
+### MCP clients and agent skills
+
+With uv installed, configure your MCP client to run `uvx` with arguments
+`["--from", "iristool[mcp]", "iristool-mcp"]`. The first launch downloads
+iristool and its dependencies; later launches reuse uv's cache. You can also
+install once with `uv tool install 'iristool[mcp]'` and register `iristool-mcp`
+as the command with no arguments. See the
+[MCP installation guide](docs/mcp.md#install-and-run) for both configurations
+and workspace setup.
+
+To download the optional workflow skill in Codex, ask:
+
+> Use $skill-installer to install skills/iristool-data-workflows from the
+> GitHub repository pietrodileo/iristool.
+
+Then invoke `$iristool-data-workflows`. See [Agent skill](#agent-skill) for
+usage and installation from a local checkout.
 
 ### With pip
 
@@ -526,7 +587,7 @@ uv run --all-extras iristool-export KaggleIris iris.csv --schema SQLUser
 
 **Python**
 
-`export_table()` is part of the core. It reads the whole table into a pandas DataFrame and selects the writer from the output extension:
+`export_table()` streams CSV, JSON and JSONL in chunks (default: 10,000 rows) to keep import/export memory usage low and improve performance. It uses the same implementation as MCP. The output extension selects the format:
 
 ```python
 with IRIStool(**connection) as db:
@@ -561,8 +622,48 @@ with IRIStool(**connection) as db:
     db.export_table("KaggleIris", "iris.csv", overwrite=True, sep=";")
 ```
 
-Extra keyword arguments go to pandas `to_csv`, `to_excel`, or `to_json`. The entire table must fit in memory; no row ordering is guaranteed. For a filtered or ordered export, use `db.fetch(...)` and the pandas writer directly.
-An output failure can leave a partial file; `overwrite=True` replaces the previous file once writing starts. This does not change the source table.
+Set `chunk_size` to control export memory. XLSX, custom pandas writer arguments, or `chunk_size=None` use a whole-table DataFrame. Extra keyword arguments go to pandas `to_csv`, `to_excel`, or `to_json`; no row ordering is guaranteed. For a filtered or ordered export, use `db.fetch(...)` and the pandas writer directly.
+Exports write a temporary file and publish it only after success. A failure preserves an existing destination, including with `overwrite=True`. This does not change the source table.
+
+### Export selected rows and columns
+
+Use structured table selection from Python (also available in MCP):
+
+```python
+with IRIStool(**connection) as db:
+    db.export_table(
+        "People", "adults.jsonl", columns=["Name", "Age"],
+        filters=[{"column": "Age", "op": ">=", "value": 18}],
+        order_by=[{"column": "Name", "direction": "ASC"}],
+        limit=100, chunk_size=10000,
+    )
+```
+
+Filters are combined with AND. Supported operators are `=`, `!=`, `<>`, `<`,
+`<=`, `>`, `>=`, `IN` (non-empty scalar list), `IS NULL` and `IS NOT NULL`
+(omit `value`). Values are bound parameters; columns are validated identifiers
+checked against table metadata. NULL values require the NULL operators.
+`limit` is a positive integer. Order by a unique column or combination for
+reproducible limited results. Filtering, projection, ordering and limits run
+inside IRIS; the exporter receives only the selected result.
+
+For joins, expressions or more complex filters, the Python API accepts SQL:
+
+```python
+with IRIStool(**connection) as db:
+    db.export_query(
+        'SELECT "Name", "Age" FROM "SQLUser"."People" WHERE "Age" >= ?',
+        "adults.csv", parameters=[18], chunk_size=10000,
+    )
+```
+
+Both APIs share the streaming writer and atomic destination replacement.
+`export_query()` returns `Path`, binds parameters and leaves the connection open.
+It executes SQL with the database account's permissions and does not enforce
+read-only SQL, commit, or roll back the transaction. Use distinct aliases for
+query columns with duplicate names. Raw query export is not exposed through MCP.
+XLSX, custom pandas writer options and `chunk_size=None` still materialize the
+selected result in memory.
 
 ## Examples
 
@@ -574,10 +675,13 @@ The following examples reuse the `connection` dictionary from the quick start.
 
 ```python
 with IRIStool(**connection) as db:
-    db.df_to_table(pd.read_csv("people.csv"), "PeopleCSV", batch_size=1000)
+    db.import_file(
+        "people.csv", "PeopleCSV", chunk_size=10000,
+        column_types={"Name": "VARCHAR(255)", "Age": "INT"},
+    )
 ```
 
-Pandas reads the file; iristool creates the table and inserts its contents. The entire DataFrame must fit in memory. `batch_size` limits the number of rows sent to IRIS per batch, rather than streaming the input file.
+Core and MCP share this file reader and transaction behavior. CSV/TSV and JSONL stream when `chunk_size` and complete `column_types` are supplied. Omit both to infer types from the whole input. `batch_size` controls SQL insertion batches separately. XLSX and JSON records arrays load into memory. Failed inserts roll back all rows, but table creation/replacement commits first. Existing `df_to_table()` callers continue to work.
 
 ### Control types and keys
 

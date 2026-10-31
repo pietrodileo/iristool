@@ -45,6 +45,29 @@ class ImportTests(unittest.TestCase):
                                                   exist_ok=False, drop_if_exists=False)
         self.assertEqual(result, {"SQLUser.people": 2})
 
+    def test_workspace_token_uses_isolated_download(self):
+        import json
+        self.csv()
+        with patch('iristool.integrations.kaggle.subprocess.run') as run:
+            run.return_value = Mock(returncode=0, stdout=json.dumps(str(self.folder)))
+            import_dataset(self.db, 'owner/data', token='workspace-secret')
+            self.assertEqual(json.loads(run.call_args.kwargs['input'])['token'], 'workspace-secret')
+            self.assertNotIn('workspace-secret', str(run.call_args.args))
+            self.download.assert_not_called()
+            run.return_value = Mock(returncode=1, stdout='', stderr='workspace-secret')
+            with self.assertRaisesRegex(RuntimeError, 'workspace token') as error:
+                import_dataset(self.db, 'owner/data', token='workspace-secret')
+            self.assertNotIn('workspace-secret', str(error.exception))
+
+    def test_child_sets_credentials_before_download(self):
+        import json
+        from iristool.integrations._kaggle_download import main as download_main
+        with patch('sys.stdin', io.StringIO(json.dumps({'dataset': 'owner/data', 'file': None,
+                                                     'token': 'child-secret'}))), patch('kagglehub.config.set_kaggle_api_token') as setter:
+            download_main()
+        setter.assert_called_once_with('child-secret')
+        self.download.assert_called_once_with('owner/data')
+
     def test_all_files_nested_tsv_and_name_normalization(self):
         self.csv("nested/2026-sales.TSV", "Order #\tTotal ($)\n7\t3.5\n")
         self.csv()

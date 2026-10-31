@@ -181,40 +181,53 @@ class IRIStool:
             print(f"Error executing query: {e}")
             raise   # re-raise to let caller handle it
 
-    def export_table(self, table_name: str, path, table_schema: str = "SQLUser",
-                     *, overwrite: bool = False, **kwargs) -> Path:
-        """Export a whole table to .csv, .xlsx or .json using pandas.
+    def import_file(self, path, table_name: str, table_schema: str = "SQLUser", *,
+                    replace=False, column_types=None, batch_size=1000,
+                    chunk_size=None, separator=None, sheet_name=0) -> int:
+        """Import CSV/TSV, JSON/JSONL or XLSX; return the inserted row count.
 
-        CSV/XLSX omit the pandas index; JSON defaults to records with ISO dates.
-        kwargs are passed to the corresponding pandas writer. XLSX requires
-        iristool[excel]. Existing files fail unless overwrite=True. The table
-        is loaded into memory; this method does not close the connection.
-        Returns the output Path. Parent directories must already exist.
+        Set chunk_size with complete column_types for bounded-memory CSV/JSONL
+        imports. Without chunk_size the full input is used for type inference.
+        Inserts share one transaction; table creation/replacement commits first.
         """
-        path = Path(path)
-        suffix = path.suffix.lower()
-        if suffix not in {".csv", ".xlsx", ".json"}:
-            raise ValueError("Choose a .csv, .xlsx or .json output file.")
-        self.validate_table_name(table_name, table_schema)
-        if path.exists() and not overwrite:
-            raise FileExistsError(f"Output already exists: {path}. Use overwrite=True to replace it.")
-        if suffix == ".xlsx":
-            try:
-                import openpyxl  # noqa: F401
-            except ImportError as exc:
-                raise ImportError('Install Excel support with: pip install "iristool[excel]"') from exc
-        frame = self.fetch(f"SELECT * FROM {self._identifier(table_schema)}.{self._identifier(table_name)}")
-        mode = "w" if overwrite else "x"
-        if suffix == ".xlsx":
-            with path.open(mode + "b") as output:
-                frame.to_excel(output, **{"index": False, "engine": "openpyxl", **kwargs})
-        else:
-            with path.open(mode, encoding="utf-8", newline="") as output:
-                if suffix == ".csv":
-                    frame.to_csv(output, **{"index": False, **kwargs})
-                else:
-                    frame.to_json(output, **{"orient": "records", "date_format": "iso", **kwargs})
-        return path
+        from .transfer import import_file
+        return import_file(self, path, table_name, schema=table_schema,
+                           replace=replace, column_types=column_types,
+                           batch_size=batch_size, chunk_size=chunk_size,
+                           separator=separator, sheet_name=sheet_name)
+
+    def export_table(self, table_name: str, path, table_schema: str = "SQLUser",
+                     *, overwrite: bool = False, chunk_size: int | None = 10000,
+                     columns=None, filters=None, order_by=None, limit=None, **kwargs) -> Path:
+        """Export CSV, JSON/JSONL or XLSX, atomically publishing a completed file.
+
+        CSV/JSON/JSONL stream in bounded chunks by default. XLSX, custom pandas
+        writer kwargs, or chunk_size=None use a whole-table DataFrame. CSV/XLSX
+        omit the pandas index; JSON defaults to records with ISO dates. XLSX
+        requires iristool[excel]. Returns Path; parent directories must exist.
+        Optional columns, ANDed filters ({column, op, value}), order_by
+        ({column, direction}) and positive limit select a subset inside IRIS.
+        NULL filters omit value; IN uses a non-empty list. No SQL fragments.
+        """
+        from .transfer import export_file
+        export_file(self, table_name, path, schema=table_schema,
+                    overwrite=overwrite, chunk_size=chunk_size, columns=columns,
+                    filters=filters, order_by=order_by, limit=limit, **kwargs)
+        return Path(path)
+
+    def export_query(self, sql: str, path, parameters=None, *, overwrite=False,
+                     chunk_size: int | None = 10000, **kwargs) -> Path:
+        """Export a query result with bound parameters and atomic file publication.
+
+        CSV/JSON/JSONL stream via fetchmany. XLSX, custom pandas writer options,
+        or chunk_size=None materialize the result. SQL executes with the account's
+        permissions; this Python API does not enforce read-only SQL. Use unique
+        column aliases for joins. Does not commit or close the connection.
+        """
+        from .transfer import export_query
+        export_query(self, sql, path, parameters=parameters, overwrite=overwrite,
+                     chunk_size=chunk_size, **kwargs)
+        return Path(path)
 
     def insert_row(self, table_name: str, values: dict, table_schema: str = "SQLUser") -> None:
         """

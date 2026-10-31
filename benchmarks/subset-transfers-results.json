@@ -1,0 +1,56 @@
+{
+  "rows": 200000,
+  "repeat": 3,
+  "python": "3.12.13",
+  "platform": "darwin",
+  "measurements": [
+    {
+      "case": "export_subset_full",
+      "seconds": 0.3432,
+      "rows_per_second": 291391,
+      "peak_rss_mib": 254.3
+    },
+    {
+      "case": "export_subset_chunks",
+      "seconds": 0.3455,
+      "rows_per_second": 289413,
+      "peak_rss_mib": 154.5
+    },
+    {
+      "case": "export_subset_chunks",
+      "seconds": 0.3341,
+      "rows_per_second": 299320,
+      "peak_rss_mib": 152.6
+    },
+    {
+      "case": "export_subset_full",
+      "seconds": 0.3536,
+      "rows_per_second": 282817,
+      "peak_rss_mib": 251.2
+    },
+    {
+      "case": "export_subset_full",
+      "seconds": 0.3495,
+      "rows_per_second": 286111,
+      "peak_rss_mib": 251.2
+    },
+    {
+      "case": "export_subset_chunks",
+      "seconds": 0.3511,
+      "rows_per_second": 284830,
+      "peak_rss_mib": 151.6
+    }
+  ],
+  "medians": {
+    "export_subset_full": {
+      "seconds": 0.3495,
+      "rows_per_second": 286111,
+      "peak_rss_mib": 251.2
+    },
+    "export_subset_chunks": {
+      "seconds": 0.3455,
+      "rows_per_second": 289413,
+      "peak_rss_mib": 152.6
+    }
+  }
+}

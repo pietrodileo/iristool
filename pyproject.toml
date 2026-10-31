@@ -25,9 +25,14 @@ integrations = [
     "kagglehub>=1.0.3,<2; python_version >= '3.11'",
     "datasets>=4,<5",
 ]
+mcp = [
+    "fastmcp>=2.14,<3",
+    "tomli>=2,<3 ; python_full_version < '3.11'",
+]
 
 [project.scripts]
 iristool-export = "iristool.cli:main_export"
+iristool-mcp = "iristool.mcp_server:main"
 iristool-kaggle = "iristool.integrations.cli:main_kaggle"
 iristool-hf = "iristool.integrations.cli:main_huggingface"
 
