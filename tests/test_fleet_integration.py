@@ -78,6 +78,31 @@ class FleetIntegrationTests(unittest.TestCase):
             env={'IRISTOOL_FLEET_PASSWORD': self.password},
             log_file=self.root / 'stdio.log'), roots=[self.root.as_uri()])
 
+    def test_append_preserves_unique_index_and_rolls_back_duplicate_batch(self):
+        db = self.admins['writable']
+        db.create_index('UniqueNumber', self.table, 'Number', index_type='unique')
+        (self.root / 'duplicate.csv').write_text('Number,Marker\n3,new\n1,duplicate\n')
+
+        async def check():
+            async with self.client() as client:
+                result = (await client.call_tool('iris_import_file', {
+                    'path': 'source.csv', 'table': self.table, 'append': True,
+                    'chunk_size': 1, 'batch_size': 1})).data
+                self.assertEqual(result['rows'], 1)
+                with self.assertRaises(Exception):
+                    await client.call_tool('iris_import_file', {
+                        'path': 'duplicate.csv', 'table': self.table, 'append': True,
+                        'chunk_size': 1, 'batch_size': 1})
+                with self.assertRaisesRegex(Exception, 'read.only'):
+                    await client.call_tool('iris_import_file', {
+                        'path': 'source.csv', 'table': self.table, 'append': True,
+                        'server': 'readonly'})
+        asyncio.run(check())
+        # Original row and successful append remain; the failed batch added no rows.
+        rows = db.fetch(f'SELECT Number, Marker FROM SQLUser.{self.table} ORDER BY Number')
+        self.assertEqual(list(rows.itertuples(index=False, name=None)),
+                         [(1, 'writer'), (2, 'imported')])
+
     def test_stdio_fleet_routes_reads_and_enforces_read_only(self):
         async def check():
             async with self.client() as client:

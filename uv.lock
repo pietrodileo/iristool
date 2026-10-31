@@ -1255,6 +1255,14 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "datasets" },
+    { name = "fastmcp" },
+    { name = "kagglehub", version = "1.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "kagglehub", version = "1.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "openpyxl" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+]
 excel = [
     { name = "openpyxl" },
 ]
@@ -1281,6 +1289,7 @@ requires-dist = [
     { name = "datasets", marker = "extra == 'integrations'", specifier = ">=4,<5" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.14,<3" },
     { name = "intersystems-irispython", specifier = ">=5.2.1,<6" },
+    { name = "iristool", extras = ["mcp", "excel", "integrations"], marker = "extra == 'all'" },
     { name = "kagglehub", marker = "python_full_version >= '3.11' and extra == 'integrations'", specifier = ">=1.0.3,<2" },
     { name = "kagglehub", marker = "python_full_version >= '3.11' and extra == 'kaggle'", specifier = ">=1.0.3,<2" },
     { name = "kagglehub", marker = "python_full_version < '3.11' and extra == 'integrations'", specifier = ">=1.0.2,<1.0.3" },
@@ -1289,7 +1298,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2,<4" },
     { name = "tomli", marker = "python_full_version < '3.11' and extra == 'mcp'", specifier = ">=2,<3" },
 ]
-provides-extras = ["excel", "kaggle", "huggingface", "integrations", "mcp"]
+provides-extras = ["all", "excel", "kaggle", "huggingface", "integrations", "mcp"]
 
 [[package]]
 name = "jaraco-classes"

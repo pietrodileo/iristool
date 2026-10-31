@@ -120,8 +120,12 @@ are client-specific; Cursor's `${workspaceFolder}` is not portable.
 
 The examples use `uvx`, which downloads iristool and its dependencies on first
 launch and reuses its cache afterward. You can also install once with
-`uv tool install 'iristool[mcp]'`; the guide includes the corresponding command
+`uv tool install 'iristool[all]'`; the guide includes the corresponding command
 changes. See the [recommended setup](docs/mcp.md#recommended-setup).
+
+The recommended configurations use `iristool[all]` for MCP, Excel, Hugging Face
+and Kaggle support together. Choose individual
+[optional extras](docs/mcp.md#optional-extras) for a smaller installation.
 
 To download the optional workflow skill in Codex, ask:
 
@@ -685,6 +689,20 @@ with IRIStool(**connection) as db:
 ```
 
 Core and MCP share this file reader and transaction behavior. CSV/TSV and JSONL stream when `chunk_size` and complete `column_types` are supplied. Omit both to infer types from the whole input. `batch_size` controls SQL insertion batches separately. XLSX and JSON records arrays load into memory. Failed inserts roll back all rows, but table creation/replacement commits first. Existing `df_to_table()` callers continue to work.
+
+### Append to an existing table
+
+To append a local file to an existing table while keeping its data and indexes:
+
+```python
+with IRIStool(**connection) as db:
+    db.import_file("random_users.csv", "users", append=True, chunk_size=10000)
+```
+
+Append requires an existing table and cannot be combined with `replace=True`.
+It uses the existing SQL schema, so `column_types` is not required for chunking.
+Database constraints apply; a failed batch rolls back the whole import. MCP's
+`iris_import_file` exposes the same `append` option.
 
 ### Control types and keys
 

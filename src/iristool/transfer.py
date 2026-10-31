@@ -1,7 +1,7 @@
 """Shared core and MCP pandas transfers with bounded-memory file operations."""
 
 from itertools import islice
-from contextlib import closing
+from contextlib import closing, nullcontext
 import json
 import os
 from pathlib import Path
@@ -40,12 +40,13 @@ def _positive(value, name):
         raise ValueError(f"{name} must be a positive integer.")
 
 
-def import_file(db, path, table, *, schema="SQLUser", replace=False,
+def import_file(db, path, table, *, schema="SQLUser", replace=False, append=False,
                 column_types=None, batch_size=1000, chunk_size=None,
                 separator=None, sheet_name=0):
     """Import CSV/TSV, JSON records/JSONL or XLSX; return the inserted row count.
 
-    Streaming CSV/JSONL requires a complete explicit SQL schema. All insertion
+    Append inserts into an existing table without DDL or index changes.
+    Streaming CSV/JSONL creation requires a complete explicit SQL schema. All insertion
     chunks share one transaction. Table creation/replacement commits first,
     matching df_to_table: a failed load may leave an empty newly created table.
     """
@@ -53,9 +54,13 @@ def import_file(db, path, table, *, schema="SQLUser", replace=False,
     suffix = path.suffix.lower()
     _positive(batch_size, "batch_size")
     db.validate_table_name(table, schema)
+    if append and replace:
+        raise ValueError("append and replace are mutually exclusive.")
+    if append and not db.table_exists(table, schema):
+        raise ValueError("Append requires an existing table.")
     if chunk_size is not None:
         _positive(chunk_size, "chunk_size")
-        if suffix not in {".csv", ".tsv", ".jsonl"} or not column_types:
+        if suffix not in {".csv", ".tsv", ".jsonl"} or (not column_types and not append):
             raise ValueError("Streaming imports require CSV/TSV/JSONL and complete column_types.")
     if suffix in {".csv", ".tsv"}:
         frames = pd.read_csv(path, sep=separator or ("\t" if suffix == ".tsv" else ","),
@@ -73,21 +78,27 @@ def import_file(db, path, table, *, schema="SQLUser", replace=False,
         frames = pd.read_excel(path, sheet_name=sheet_name, dtype_backend="numpy_nullable")
     else:
         raise ValueError("Choose a CSV, TSV, JSON, JSONL or XLSX input file.")
-    if chunk_size is None:
+    if chunk_size is None and not append:
         db.df_to_table(frames, table, table_schema=schema, column_types=column_types,
                        exist_ok=replace, drop_if_exists=replace, batch_size=batch_size)
         return len(frames)
     count = 0
     columns = None
     try:
-        with closing(frames), db.conn.cursor() as cursor:
+        with (closing(frames) if chunk_size is not None else nullcontext()), db.conn.cursor() as cursor:
+            if chunk_size is None:
+                frames = [frames]
             for frame in frames:
                 names = db._column_names(frame.columns)
                 if columns is None:
                     columns = names
-                    db.df_to_table(frame.iloc[:0], table, table_schema=schema,
-                                   column_types=column_types, exist_ok=replace,
-                                   drop_if_exists=replace, batch_size=batch_size)
+                    if append:
+                        if column_types is not None and set(db._column_names(column_types)) != set(names):
+                            raise ValueError("column_types must match the input columns.")
+                    else:
+                        db.df_to_table(frame.iloc[:0], table, table_schema=schema,
+                                       column_types=column_types, exist_ok=replace,
+                                       drop_if_exists=replace, batch_size=batch_size)
                     sql = (f"INSERT INTO {db.validate_table_name(table, schema)} "
                            f"({', '.join(db._identifier(c) for c in columns)}) "
                            f"VALUES ({', '.join('?' for _ in columns)})")

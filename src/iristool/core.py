@@ -182,17 +182,19 @@ class IRIStool:
             raise   # re-raise to let caller handle it
 
     def import_file(self, path, table_name: str, table_schema: str = "SQLUser", *,
-                    replace=False, column_types=None, batch_size=1000,
+                    replace=False, append=False, column_types=None, batch_size=1000,
                     chunk_size=None, separator=None, sheet_name=0) -> int:
         """Import CSV/TSV, JSON/JSONL or XLSX; return the inserted row count.
 
-        Set chunk_size with complete column_types for bounded-memory CSV/JSONL
-        imports. Without chunk_size the full input is used for type inference.
+        Set chunk_size for bounded-memory CSV/JSONL imports; creation/replacement
+        requires complete column_types. Without it, the full input is read.
         Inserts share one transaction; table creation/replacement commits first.
+        append=True requires an existing table and preserves its schema and indexes;
+        it cannot be combined with replace. Chunked appends need no column_types.
         """
         from .transfer import import_file
         return import_file(self, path, table_name, schema=table_schema,
-                           replace=replace, column_types=column_types,
+                           replace=replace, append=append, column_types=column_types,
                            batch_size=batch_size, chunk_size=chunk_size,
                            separator=separator, sheet_name=sheet_name)
 

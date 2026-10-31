@@ -27,13 +27,16 @@ packages installed on the IRIS server.
 | [Claude Code](#claude-code) | Project `.mcp.json` | MCP roots report the folder where the session started |
 | [Codex](#codex) | `.codex/config.toml` or `~/.codex/config.toml` | Launch the CLI from the project; GUI fallback uses an explicit directory |
 
+The configurations below recommend `iristool[all]` for MCP, Excel, Hugging Face
+and Kaggle support. For a smaller installation, choose [optional extras](#optional-extras).
+
 Create a `.iristool.toml` in each project using the
 [workspace and fleet example](#workspace-configuration). The client-specific
 sections below include copyable configurations. `${workspaceFolder}` is Cursor
 syntax; do not copy it into another client's configuration.
 
 The first `uvx` launch downloads the dependencies; later launches reuse uv's
-cache. Add [optional extras](#optional-extras) for Excel, Hugging Face or Kaggle.
+cache. The recommended package includes Excel and both dataset providers.
 For a persistent installation, use [Install once](#option-1-install-once).
 After configuring the server, ask your agent to call `iris_servers` and check
 that its returned `workspace` is the project you intended.
@@ -61,7 +64,7 @@ Both use the same workspace configuration and support multiple workspaces.
 Install the command once for your user account, then use it across workspaces:
 
 ```bash
-uv tool install 'iristool[mcp]'
+uv tool install 'iristool[all]'
 ```
 
 After installation:
@@ -102,13 +105,13 @@ shared installation, run `uv tool upgrade iristool`.
 
 With uv installed, your MCP client can run iristool directly without a separate
 `uv tool install` step. Set its command to `uvx` and its arguments to
-`["--from", "iristool[mcp]", "iristool-mcp"]`. See the
+`["--from", "iristool[all]", "iristool-mcp"]`. See the
 [client configuration examples](#mcp-client-configuration) below.
 
 The equivalent terminal command is:
 
 ```bash
-uvx --from 'iristool[mcp]' iristool-mcp
+uvx --from 'iristool[all]' iristool-mcp
 ```
 
 The first launch downloads iristool, its dependencies and, if needed, Python.
@@ -135,7 +138,7 @@ To check for updates each time your client starts the server, add `--upgrade`
 before `--from` in its arguments:
 
 ```json
-["--upgrade", "--from", "iristool[mcp]", "iristool-mcp"]
+["--upgrade", "--from", "iristool[all]", "iristool-mcp"]
 ```
 
 Keep any client-specific workspace arguments after `iristool-mcp`. Restart
@@ -210,7 +213,12 @@ combination you need when installing:
 | `iristool[mcp,huggingface]` | MCP server plus Hugging Face dataset imports |
 | `iristool[mcp,kaggle]` | MCP server plus Kaggle dataset imports |
 | `iristool[mcp,integrations]` | MCP server plus both dataset providers |
-| `iristool[mcp,excel,integrations]` | MCP server, XLSX and both dataset providers |
+| `iristool[all]` | MCP server, XLSX and both dataset providers |
+
+`all` is the recommended shortcut for `mcp,excel,integrations`. The individual
+extras remain available for smaller installations; replace `iristool[all]`
+in your client's arguments with the combination you need, keeping its workspace
+arguments.
 
 For example, to install MCP support with Excel:
 
@@ -222,7 +230,7 @@ If iristool is already installed, replace its installation with the extras you
 want to keep:
 
 ```bash
-uv tool install --force 'iristool[mcp,excel,integrations]'
+uv tool install --force 'iristool[all]'
 ```
 
 Extras do not change the MCP command or workspace arguments. Provider credentials
@@ -273,6 +281,21 @@ Unknown settings cause a configuration error.
 Pass `server="reporting"` to select that fleet connection in a tool call. If you
 omit `server`, the tool uses `default_server`. An unknown name causes an error;
 the server does not switch to another instance.
+
+### Changing configuration
+
+The server does not automatically reload `.iristool.toml`. With `--workspace`,
+it loads configuration at startup; with workspace discovery, it loads each
+workspace's configuration on its first tool call and caches it until shutdown.
+
+After adding or removing a server, changing `read_only`, or editing credentials,
+host, namespace or `default_server`, restart the iristool MCP process through
+your client. Then call `iris_servers` to verify the loaded settings. Until the
+restart, new servers are unavailable and existing settings remain active.
+
+**Setting `read_only = true` in the file does not block writes in an already
+running process until it restarts.** Changing it to `false` likewise leaves
+writes blocked until restart.
 
 ### Read-only connections
 
@@ -343,7 +366,7 @@ Put this in `.cursor/mcp.json` inside your project:
     "iristool": {
       "command": "uvx",
       "args": [
-        "--from", "iristool[mcp]", "iristool-mcp",
+        "--from", "iristool[all]", "iristool-mcp",
         "--workspace", "${workspaceFolder}"
       ]
     }
@@ -364,7 +387,7 @@ and `"args": ["--workspace", "${workspaceFolder}"]` instead.
 After changing the MCP settings, restart the iristool server in Cursor and
 ask it to call `iris_servers`. The returned `workspace` should be your project
 folder. This setup bypasses MCP-roots discovery, including errors when a client
-advertises roots but fails to return them. It works with iristool 0.5.0.
+advertises roots but fails to return them.
 
 See [Cursor's configuration reference](https://prod.cursor.com/docs/mcp) for
 project settings and variable interpolation.
@@ -379,7 +402,7 @@ Create `.mcp.json` in the project root alongside `.iristool.toml`:
     "iristool": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "iristool[mcp]", "iristool-mcp"]
+      "args": ["--from", "iristool[all]", "iristool-mcp"]
     }
   }
 }
@@ -411,7 +434,7 @@ Add this to `.codex/config.toml` in a trusted project, or to
 ```toml
 [mcp_servers.iristool]
 command = "uvx"
-args = ["--from", "iristool[mcp]", "iristool-mcp"]
+args = ["--from", "iristool[all]", "iristool-mcp"]
 startup_timeout_sec = 60
 ```
 
@@ -428,7 +451,7 @@ workspace in that project's configuration:
 ```toml
 [mcp_servers.iristool]
 command = "uvx"
-args = ["--from", "iristool[mcp]", "iristool-mcp", "--workspace", "/absolute/path/to/project"]
+args = ["--from", "iristool[all]", "iristool-mcp", "--workspace", "/absolute/path/to/project"]
 startup_timeout_sec = 60
 ```
 
@@ -468,14 +491,15 @@ With `uvx`, without a separate iristool installation step:
   "mcpServers": {
     "iristool": {
       "command": "uvx",
-      "args": ["--from", "iristool[mcp]", "iristool-mcp"]
+      "args": ["--from", "iristool[all]", "iristool-mcp"]
     }
   }
 }
 ```
 
-For optional capabilities, change `iristool[mcp]` in the `uvx` arguments to
-the combination you need, such as `iristool[mcp,excel]`.
+These examples include all optional capabilities. For a smaller installation,
+replace `iristool[all]` with a combination such as `iristool[mcp,excel]` or
+`iristool[mcp]`.
 
 You can use this registration across workspaces when the client reports one
 MCP root per session or starts the command in that workspace. Each workspace
@@ -541,7 +565,7 @@ To import a file in chunks, pass arguments such as:
 ```
 
 Set `chunk_size` to control input memory for CSV, TSV or JSONL. Chunked imports
-require a complete SQL schema, and every chunk must have the same columns in
+that create or replace tables require a complete SQL schema. Every chunk must have the same columns in
 the same order. Set `batch_size` separately to control how many rows each
 `executemany` call submits. Without chunking, the server reads the whole file
 and can infer SQL types.
@@ -555,6 +579,29 @@ All insertion chunks share one transaction, but table creation or replacement
 commits first, as in the core library. `replace=true` deletes the old table;
 if insertion fails, the replacement can be empty. Provider imports that create
 several tables are not atomic.
+
+To add rows to an existing table, call `iris_import_file` with `append=true`:
+
+```json
+{
+  "path": "random_users.csv",
+  "table": "users",
+  "schema": "SQLUser",
+  "server": "writable",
+  "append": true,
+  "chunk_size": 10000,
+  "batch_size": 1000
+}
+```
+
+Append preserves existing rows, columns, constraints and indexes. It requires
+an existing table and cannot be combined with `replace=true`. The file supplies
+the columns to insert; omitted columns use database defaults or nulls where
+allowed. IRIS rejects unknown columns, incompatible values, duplicate unique
+keys and missing required values. A failed batch rolls back all rows from this
+import. Append needs no `column_types`, even with chunking. It is a write
+operation and is blocked on read-only connections. Provider import tools do
+not support append; download their data to a local file first if needed.
 
 Use `iris_create_index` to add requested secondary indexes after loading.
 Creating a unique index can fail on duplicate values without undoing the import.
@@ -734,6 +781,21 @@ instance uses SQL port 9291 and portal port 9292. All ports bind to localhost.
 These are disposable development instances using the image's `_SYSTEM` / `SYS`
 administrator login. If you changed that password, set
 `IRIS_FLEET_ADMIN_PASSWORD` when running the tests.
+
+To use these containers from your MCP client, copy the
+[Docker fleet configuration](../.iristool.fleet.toml.example) into your workspace:
+
+```bash
+cp .iristool.fleet.toml.example .iristool.toml
+```
+
+If `.iristool.toml` already exists, merge the example's two instance sections
+and `default_server` setting instead of overwriting your configuration. Restart
+the MCP server and call `iris_servers`: it should list `writable` (default,
+port 9191) and `readonly` (port 9291). The example uses the local image's default
+credentials; update them if yours differ. Its `read_only=true` setting blocks
+MCP write tools, while the `_SYSTEM` account retains database write access.
+Use a restricted SQL account to enforce read-only access in IRIS as well.
 
 The tests create temporary SQL accounts and tables, plus a workspace TOML fleet
 configuration discovered through MCP workspace roots. The reader receives only
