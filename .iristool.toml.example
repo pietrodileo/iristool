@@ -1,0 +1,23 @@
+default_server = "dev"
+
+[instance.dev]
+host = "localhost"
+port = 9091  # SQL SuperServer port, not the Management Portal port
+namespace = "USER"
+username = "_SYSTEM"
+password_env = "IRIS_DEV_PASSWORD"
+
+# Each instance is independent; credentials are never inherited.
+# [instance.reporting]
+# host = "reporting.example.com"
+# port = 1972
+# namespace = "REPORTING"
+# username = "reader"
+# password_env = "IRIS_REPORTING_PASSWORD"
+# read_only = true
+
+# Optional workspace-specific dataset accounts. Choose token OR token_env.
+# [providers.huggingface]
+# token = "hf_your_token"
+# [providers.kaggle]
+# token_env = "THIS_WORKSPACE_KAGGLE_TOKEN"

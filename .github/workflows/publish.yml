@@ -50,6 +50,15 @@ jobs:
           /tmp/iristool-wheel/bin/iristool-kaggle --help
           /tmp/iristool-wheel/bin/iristool-hf --help
           /tmp/iristool-wheel/bin/iristool-export --help
+          /tmp/iristool-wheel/bin/iristool-mcp --help
+      - name: Check built MCP package and stdio transport
+        run: |
+          for wheel in dist/*.whl; do
+            uv pip install --python /tmp/iristool-wheel/bin/python "${wheel}[mcp,excel]"
+          done
+          /tmp/iristool-wheel/bin/python -m unittest discover -s tests -p test_mcp.py -v -b
+          /tmp/iristool-wheel/bin/python -m unittest discover -s tests -p test_transfer.py -v -b
+          /tmp/iristool-wheel/bin/python -m unittest discover -s tests -p test_query_export.py -v -b
       - uses: actions/upload-artifact@v4
         with:
           name: distributions

@@ -8,3 +8,5 @@ dist/
 storage/
 .DS_Store
 .venv-pypi/
+
+.iristool.toml

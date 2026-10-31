@@ -2,6 +2,9 @@
 
 from pathlib import Path, PurePosixPath
 import re
+import json
+import subprocess
+import sys
 from urllib.parse import urlsplit
 
 import pandas as pd
@@ -22,7 +25,7 @@ def _handle(dataset):
 
 
 def import_dataset(db, dataset, *, file=None, table=None, schema="SQLUser", replace=False,
-                   read_csv_kwargs=None):
+                   read_csv_kwargs=None, token=None):
     """Import CSV/TSV files; return {qualified_table: row_count}.
 
     db is an open IRIStool connection. read_csv_kwargs goes directly to pandas
@@ -43,7 +46,17 @@ def import_dataset(db, dataset, *, file=None, table=None, schema="SQLUser", repl
     _validate_target(table, schema)
 
     try:
-        downloaded = Path(kagglehub.dataset_download(dataset, **({"path": file} if file else {})))
+        if token is None:
+            downloaded = Path(kagglehub.dataset_download(dataset, **({"path": file} if file else {})))
+        else:
+            # Kaggle credentials are global; isolate workspace authentication in a child.
+            completed = subprocess.run(
+                [sys.executable, "-m", "iristool.integrations._kaggle_download"],
+                input=json.dumps({"dataset": dataset, "file": file, "token": token}),
+                text=True, capture_output=True, check=False)
+            if completed.returncode:
+                raise RuntimeError("Kaggle download failed; check workspace token and dataset access.")
+            downloaded = Path(json.loads(completed.stdout))
     except Exception as exc:
         _raise_if_access_denied(exc, f"https://www.kaggle.com/datasets/{dataset.split('/versions/')[0]}",
                                 "KAGGLE_API_TOKEN")

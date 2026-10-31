@@ -18,6 +18,9 @@ class ExportTests(unittest.TestCase):
         self.db, self.cursor = disconnected_tool()
         self.cursor.description = [('Name',), ('Score',)]
         self.cursor.fetchall.return_value = [('Città', 1.5), ('Ada', None)]
+        self.pending = []
+        self.cursor.execute.side_effect = lambda *args: self.pending.append(self.cursor.fetchall.return_value)
+        self.cursor.fetchmany.side_effect = lambda size: self.pending.pop(0) if self.pending else []
 
     def test_csv_preserves_columns_unicode_and_nulls(self):
         path = self.db.export_table('People', self.folder / 'people.csv')
@@ -27,6 +30,31 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(frame.loc[0, 'Name'], 'Città')
         self.assertTrue(pd.isna(frame.loc[1, 'Score']))
         self.db.conn.close.assert_not_called()
+
+    def test_default_export_streams_without_fetchall(self):
+        self.cursor.description = [('N',)]
+        self.cursor.fetchmany.side_effect = [[(9007199254740993,), (None,)], [(3,)], []]
+        path = self.db.export_table('People', self.folder / 'stream.jsonl', chunk_size=2)
+        self.assertEqual([json.loads(line) for line in path.read_text().splitlines()],
+                         [{'N': 9007199254740993}, {'N': None}, {'N': 3}])
+        self.cursor.fetchall.assert_not_called()
+        self.assertTrue(all(call.args == (2,) for call in self.cursor.fetchmany.call_args_list))
+
+    def test_custom_pandas_options_and_full_frame_mode(self):
+        path = self.db.export_table('People', self.folder / 'split.json', orient='split')
+        self.assertEqual(json.loads(path.read_text())['columns'], ['Name', 'Score'])
+        self.cursor.fetchmany.assert_not_called()
+        self.db.export_table('People', self.folder / 'full.csv', chunk_size=None)
+        self.assertEqual(self.cursor.fetchall.call_count, 2)
+
+    def test_failed_stream_preserves_existing_output(self):
+        path = self.folder / 'existing.csv'
+        path.write_text('original')
+        self.cursor.fetchmany.side_effect = [[('Ada', 1)], RuntimeError('interrupted')]
+        with self.assertRaisesRegex(RuntimeError, 'interrupted'):
+            self.db.export_table('People', path, overwrite=True, chunk_size=1)
+        self.assertEqual(path.read_text(), 'original')
+        self.assertEqual(list(self.folder.iterdir()), [path])
 
     def test_json_records_with_iso_dates(self):
         self.cursor.description = [('Day',), ('Score',)]
