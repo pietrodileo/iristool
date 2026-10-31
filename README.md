@@ -112,13 +112,16 @@ See [dataset integrations](#dataset-integrations) and [export examples](#export-
 
 ### MCP clients and agent skills
 
-With uv installed, configure your MCP client to run `uvx` with arguments
-`["--from", "iristool[mcp]", "iristool-mcp"]`. The first launch downloads
-iristool and its dependencies; later launches reuse uv's cache. You can also
-install once with `uv tool install 'iristool[mcp]'` and register `iristool-mcp`
-as the command with no arguments. See the
-[MCP installation guide](docs/mcp.md#install-and-run) for both configurations
-and workspace setup.
+[Install uv](https://docs.astral.sh/uv/getting-started/installation/), then use the configuration for your client:
+[Cursor](docs/mcp.md#cursor), [Claude Code](docs/mcp.md#claude-code), or
+[Codex](docs/mcp.md#codex). Each section explains how the client supplies the
+project folder so iristool can read its `.iristool.toml`. Workspace variables
+are client-specific; Cursor's `${workspaceFolder}` is not portable.
+
+The examples use `uvx`, which downloads iristool and its dependencies on first
+launch and reuses its cache afterward. You can also install once with
+`uv tool install 'iristool[mcp]'`; the guide includes the corresponding command
+changes. See the [recommended setup](docs/mcp.md#recommended-setup).
 
 To download the optional workflow skill in Codex, ask:
 

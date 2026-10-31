@@ -2,15 +2,15 @@
 
 The optional MCP server uses Python and FastMCP. It runs locally over stdio and
 connects to IRIS through the official Python driver on the SQL SuperServer port.
-Install uv first. You do not need Docker, a standalone executable, or Python
+[Install uv](https://docs.astral.sh/uv/getting-started/installation/) first. You do not need Docker, a standalone executable, or Python
 packages installed on the IRIS server.
 
 ## Contents
 
 - [Recommended setup](#recommended-setup)
-- [Installation](#install-and-run) and [optional extras](#optional-extras)
+- [Installation](#install-and-run), [upgrades](#upgrade-the-mcp-server) and [optional extras](#optional-extras)
 - [Workspace and fleet configuration](#workspace-configuration), [read-only connections](#read-only-connections) and [workspace discovery](#workspace-discovery)
-- [MCP client configuration](#mcp-client-configuration)
+- [MCP client configuration](#mcp-client-configuration): [Cursor](#cursor), [Claude Code](#claude-code), [Codex](#codex)
 - [Tools](#tools)
 - [Imports and performance](#imports-and-performance), [export subsets](#export-subsets) and [provider credentials](#dataset-imports-and-credentials)
 - [Companion skill](#companion-skill)
@@ -19,30 +19,24 @@ packages installed on the IRIS server.
 
 ## Recommended setup
 
-Use `uvx` to let your MCP client download and launch iristool automatically.
-Install uv, then add this to your client's global MCP settings:
+[Install uv](https://docs.astral.sh/uv/getting-started/installation/), then use the configuration for your client:
 
-```json
-{
-  "mcpServers": {
-    "iristool": {
-      "command": "uvx",
-      "args": ["--from", "iristool[mcp]", "iristool-mcp"]
-    }
-  }
-}
-```
+| Client | Configuration | Workspace selection |
+| --- | --- | --- |
+| [Cursor](#cursor) | Project `.cursor/mcp.json` | Cursor expands `${workspaceFolder}` |
+| [Claude Code](#claude-code) | Project `.mcp.json` | MCP roots report the folder where the session started |
+| [Codex](#codex) | `.codex/config.toml` or `~/.codex/config.toml` | Launch the CLI from the project; GUI fallback uses an explicit directory |
 
 Create a `.iristool.toml` in each project using the
-[workspace and fleet configuration example](#workspace-configuration). The
-client must report that project's folder or launch the server from it; see
-[workspace discovery](#workspace-discovery). No project paths belong in the
-client configuration above.
+[workspace and fleet example](#workspace-configuration). The client-specific
+sections below include copyable configurations. `${workspaceFolder}` is Cursor
+syntax; do not copy it into another client's configuration.
 
-The first launch downloads the dependencies; later launches reuse uv's cache.
-Add [optional extras](#optional-extras) for Excel, Hugging Face or Kaggle.
+The first `uvx` launch downloads the dependencies; later launches reuse uv's
+cache. Add [optional extras](#optional-extras) for Excel, Hugging Face or Kaggle.
 For a persistent installation, use [Install once](#option-1-install-once).
-For other client details, see [MCP client configuration](#mcp-client-configuration).
+After configuring the server, ask your agent to call `iris_servers` and check
+that its returned `workspace` is the project you intended.
 
 Install the optional `iristool-data-workflows` skill in your agent using its
 skill installer, or copy the repository's `skills/iristool-data-workflows/`
@@ -72,8 +66,9 @@ uv tool install 'iristool[mcp]'
 
 After installation:
 
-1. In your editor or agent's MCP settings, set the command to `iristool-mcp`.
-   Leave the arguments empty. You only need to configure this once.
+1. Use your [client's configuration](#mcp-client-configuration), replacing
+   `uvx` and its package arguments with the installed `iristool-mcp` command.
+   Keep any workspace arguments shown for that client.
 2. In each project folder, create a `.iristool.toml` containing the IRIS
    connections you want to use for that project.
 3. Open a project and use the iristool tools. The server reads that project's
@@ -124,6 +119,45 @@ disk space.
 Pin the package version in your client configuration to reproduce an installation.
 The library supports Python 3.10+; the MCP extra uses FastMCP 2.14.x and `tomli`
 on Python 3.10.
+
+`uvx` can keep using a cached version after a new release is published. Add
+`--upgrade` before `--from` to check for updates each time the MCP server starts,
+then restart the server to apply them. See [upgrade instructions](#upgrade-the-mcp-server)
+for pinned versions and persistent installations.
+
+### Upgrade the MCP server
+
+Publishing a new version on PyPI does not update a running MCP server.
+An ordinary `uvx` launch can keep using its cached version; it does not
+automatically check for a new release on every launch.
+
+To check for updates each time your client starts the server, add `--upgrade`
+before `--from` in its arguments:
+
+```json
+["--upgrade", "--from", "iristool[mcp]", "iristool-mcp"]
+```
+
+Keep any client-specific workspace arguments after `iristool-mcp`. Restart
+the MCP server to run the updated version. This checks PyPI at launch and
+reuses cached downloads when possible; it does not update an already running
+process. To update only when you choose, add `--upgrade` for one launch, then
+remove it from the client configuration.
+
+If you pin a version, such as `iristool[mcp]==0.5.0`, change that pin to the
+desired release. `--upgrade` does not override an explicit version requirement.
+
+For an installation made with `uv tool install`, run:
+
+```bash
+uv tool upgrade iristool
+```
+
+Then restart the MCP server. Installed tools retain their extras and version
+constraints. To change a pinned installation, reinstall with the desired
+version and extras, for example `uv tool install --force 'iristool[mcp]==0.5.0'`.
+
+See [uv's tool version and upgrade documentation](https://docs.astral.sh/uv/concepts/tools/).
 
 ### Run from a repository checkout
 
@@ -191,7 +225,7 @@ want to keep:
 uv tool install --force 'iristool[mcp,excel,integrations]'
 ```
 
-The MCP command remains `iristool-mcp`, with no arguments. Provider credentials
+Extras do not change the MCP command or workspace arguments. Provider credentials
 belong in each workspace's `.iristool.toml`; installing an extra does not
 configure an account.
 
@@ -298,6 +332,119 @@ TLS configuration option. Check that this SQL connection setup meets your
 deployment requirements.
 
 ## MCP client configuration
+
+### Cursor
+
+Put this in `.cursor/mcp.json` inside your project:
+
+```json
+{
+  "mcpServers": {
+    "iristool": {
+      "command": "uvx",
+      "args": [
+        "--from", "iristool[mcp]", "iristool-mcp",
+        "--workspace", "${workspaceFolder}"
+      ]
+    }
+  }
+}
+```
+
+Keep `.iristool.toml` in the project folder alongside `.cursor/`.
+Cursor replaces `${workspaceFolder}` with that project's folder when it
+starts the server. You do not enter a folder path or select a configuration
+in chat. Opening another project launches its server with that project's
+folder; separate project windows can use different fleets at the same time.
+uvx reuses its cached installation across these launches.
+
+For an installation made with `uv tool install`, use `"command": "iristool-mcp"`
+and `"args": ["--workspace", "${workspaceFolder}"]` instead.
+
+After changing the MCP settings, restart the iristool server in Cursor and
+ask it to call `iris_servers`. The returned `workspace` should be your project
+folder. This setup bypasses MCP-roots discovery, including errors when a client
+advertises roots but fails to return them. It works with iristool 0.5.0.
+
+See [Cursor's configuration reference](https://prod.cursor.com/docs/mcp) for
+project settings and variable interpolation.
+
+### Claude Code
+
+Create `.mcp.json` in the project root alongside `.iristool.toml`:
+
+```json
+{
+  "mcpServers": {
+    "iristool": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "iristool[mcp]", "iristool-mcp"]
+    }
+  }
+}
+```
+
+Start Claude Code from that project folder and approve the project server when
+prompted. Claude Code reports the session's launch directory through MCP roots,
+so iristool selects its `.iristool.toml` without a path argument. Separate
+sessions launched from different projects can use different fleets.
+
+For a persistent installation, set `command` to `iristool-mcp` and remove
+`args`. If you use `--add-dir` or `/add-dir`, Claude Code reports multiple roots;
+iristool rejects that ambiguity. Use a separate session for each project, or
+set `args` to `["--workspace", "/absolute/path/to/project"]` with the installed
+command to select one explicitly.
+
+These instructions are for **Claude Code**, not Claude Desktop. A desktop
+client without project roots needs an explicit `--workspace` path in its MCP
+configuration; it cannot infer the folder from a file mentioned in chat.
+
+See [Claude Code's MCP guide](https://code.claude.com/docs/en/mcp) for project
+configuration, approvals and roots behavior.
+
+### Codex
+
+Add this to `.codex/config.toml` in a trusted project, or to
+`~/.codex/config.toml` for all projects:
+
+```toml
+[mcp_servers.iristool]
+command = "uvx"
+args = ["--from", "iristool[mcp]", "iristool-mcp"]
+startup_timeout_sec = 60
+```
+
+For the CLI, start `codex` from the project folder containing `.iristool.toml`.
+The server uses a single reported MCP root when available, otherwise its launch
+directory. Check `iris_servers` before importing. Codex loads project-local
+configuration only for trusted projects. The longer startup timeout gives uvx
+time to install dependencies on the first launch.
+
+Do not use `${workspaceFolder}` in Codex TOML. For a desktop or IDE session
+whose roots or launch directory do not identify your project, set an explicit
+workspace in that project's configuration:
+
+```toml
+[mcp_servers.iristool]
+command = "uvx"
+args = ["--from", "iristool[mcp]", "iristool-mcp", "--workspace", "/absolute/path/to/project"]
+startup_timeout_sec = 60
+```
+
+Replace the example path with your project directory. This fallback binds the
+server to that directory; do not put it in global settings if you want one
+registration to follow different projects. For a persistent installation, set
+`command = "iristool-mcp"` and remove the first three `args` entries, keeping
+any `--workspace` pair. Use `/mcp` to inspect the connection and call
+`iris_servers` to verify the selected directory.
+
+See the [Codex MCP guide](https://developers.openai.com/codex/mcp) for configuration
+scope and the [configuration reference](https://developers.openai.com/codex/config-reference)
+for launch settings. These examples do not assume a universal workspace
+variable or promise automatic GUI discovery when the client supplies no folder.
+
+### Other clients
 
 Choose one of these configurations in your client's global MCP settings.
 These examples use the `mcpServers` JSON format.
