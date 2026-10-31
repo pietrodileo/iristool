@@ -14,6 +14,7 @@ packages installed on the IRIS server.
 - [Tools](#tools)
 - [Imports and performance](#imports-and-performance), [export subsets](#export-subsets) and [provider credentials](#dataset-imports-and-credentials)
 - [Companion skill](#companion-skill)
+- [Uninstall](#uninstall)
 - [Validation](#validation-and-distribution) and [two-instance fleet tests](#test-a-two-instance-fleet)
 
 ## Recommended setup
@@ -42,6 +43,19 @@ The first launch downloads the dependencies; later launches reuse uv's cache.
 Add [optional extras](#optional-extras) for Excel, Hugging Face or Kaggle.
 For a persistent installation, use [Install once](#option-1-install-once).
 For other client details, see [MCP client configuration](#mcp-client-configuration).
+
+Install the optional `iristool-data-workflows` skill in your agent using its
+skill installer, or copy the repository's `skills/iristool-data-workflows/`
+directory into the skills directory your agent reads. See
+[skill installation](#install-the-companion-skill) for details.
+
+For example, in Codex, ask:
+
+> Use $skill-installer to install skills/iristool-data-workflows from the
+> GitHub repository pietrodileo/iristool.
+
+Then ask your agent: "Use the iristool-data-workflows skill for this task."
+Use your client's skill invocation syntax if it has one.
 
 ## Install and run
 
@@ -121,18 +135,34 @@ uv run --locked --extra mcp iristool-mcp
 `iristool-mcp --help` does not require FastMCP. You can use the Python and CLI
 APIs without installing MCP support.
 
-### Install the companion skill in Codex
+### Install the companion skill
 
-The skill gives Codex instructions for using the MCP tools. In Codex, ask:
+The skill provides instructions for agents using the MCP tools. Install the
+entire `skills/iristool-data-workflows/` directory through your client's skill
+installer or copy it from a local checkout. The destination depends on your
+agent. For agents configured to read `~/.agents/skills`, run from the repository
+root:
+
+```bash
+mkdir -p ~/.agents/skills
+cp -R skills/iristool-data-workflows ~/.agents/skills/
+```
+
+In Codex, you can download it by asking:
 
 > Use $skill-installer to install skills/iristool-data-workflows from the
 > GitHub repository pietrodileo/iristool.
 
 Specify a branch or tag in the request if you want a particular version.
-Then ask Codex to use `$iristool-data-workflows` for your task. The installer
-downloads the skill into Codex's skills directory; no manual repository clone
-is needed. This is separate from installing or launching the MCP server.
-See [Companion skill](#companion-skill) for local installation and usage.
+The Codex installer downloads the skill into its skills directory; no manual
+repository clone is needed.
+
+After installation, reload your client's skills if needed and ask your agent
+to use `iristool-data-workflows`. In Codex, invoke `$iristool-data-workflows`.
+If your client has no skill loader, ask the agent to read the
+[`SKILL.md`](../skills/iristool-data-workflows/SKILL.md) from your checkout and
+follow its instructions for the task. Skill installation is separate from
+installing or launching the MCP server.
 
 ## Optional extras
 
@@ -477,8 +507,8 @@ The optional
 guides agents through connection selection, imports, validation, indexing and
 exports.
 
-For a GitHub download in Codex, follow
-[Install the companion skill in Codex](#install-the-companion-skill-in-codex).
+Follow [Install the companion skill](#install-the-companion-skill) for download
+and local installation options.
 
 To install from a local checkout instead, copy its entire directory into your
 agent's skills directory, such as
@@ -488,6 +518,35 @@ example request.
 
 Installing the Python package does not install the skill. The skill provides
 workflow instructions; the server enforces permissions and validates file paths.
+
+## Uninstall
+
+Remove the `iristool` entry from your client's MCP settings, then stop its
+running MCP session or restart the client.
+
+If you installed with `uv tool install`, remove the installed command and its
+environment:
+
+```bash
+uv tool uninstall iristool
+```
+
+If you used `uvx`, there is no persistent tool installation to uninstall.
+Removing the MCP entry stops the client from launching it. To also remove
+cached entries associated with the package, run:
+
+```bash
+uv cache clean iristool
+```
+
+This package-specific cleanup does not remove every dependency from uv's cache.
+
+To remove the companion skill, use your agent's skill manager or delete only
+the `iristool-data-workflows` directory from the location where you installed
+it. Reload the agent's skills or restart its session if needed.
+
+Uninstalling leaves workspace `.iristool.toml` files, imported IRIS tables and
+exported files in place. Remove those separately if you no longer need them.
 
 ## Validation and distribution
 
