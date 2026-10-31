@@ -218,20 +218,24 @@ def create_server(config=None, *, factory=IRIStool, workspace=None, filename=Non
 
     @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True})
     async def iris_import_file(path: str, table: str, server: str | None = None,
-                               schema: str = "SQLUser", replace: bool = False,
+                               schema: str = "SQLUser", replace: bool = False, append: bool = False,
                                column_types: dict[str, str] | None = None,
                                batch_size: int = 1000, chunk_size: int | None = None,
                                separator: str | None = None, sheet_name: str | int = 0) -> dict:
         """Import workspace CSV/TSV, JSON records, JSONL or XLSX using pandas.
 
-        chunk_size enables bounded-memory CSV/TSV/JSONL reads and requires complete
-        column_types. Omit it for automatic type inference on a whole DataFrame.
+        chunk_size enables bounded-memory CSV/TSV/JSONL reads. Creating or replacing
+        tables requires complete column_types for chunking. Omit chunk_size for
+        automatic type inference on a whole DataFrame.
         replace=True deletes the previous table; replacement is not atomic.
+        append=True inserts into an existing table, preserving rows, schema and
+        indexes. It cannot be combined with replace. Chunked appends need no
+        column_types; database constraints apply and failures roll back the import.
         """
         fleet, config = await resolve()
         def operation(db):
             count = import_file(db, config.local_path(path), table, schema=schema,
-                                replace=replace, column_types=column_types,
+                                replace=replace, append=append, column_types=column_types,
                                 batch_size=batch_size, chunk_size=chunk_size,
                                 separator=separator, sheet_name=sheet_name)
             return {"table": f"{schema}.{table}", "rows": count,

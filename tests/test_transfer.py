@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import Mock
 
 import pandas as pd
 
@@ -16,6 +17,47 @@ class TransferTests(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         self.folder = Path(temp.name)
         self.db, self.cursor = disconnected_tool()
+
+    def test_append_preserves_table_and_indexes_in_full_and_chunked_imports(self):
+        source = self.folder / 'users.csv'
+        source.write_text('Name\nAda\nGrace\n')
+        for chunk_size in (None, 1):
+            with self.subTest(chunk_size=chunk_size):
+                db, cursor = disconnected_tool()
+                db.table_exists = Mock(return_value=True)
+                db.create_table = Mock()
+                db.drop_table = Mock()
+                count = db.import_file(source, 'users', append=True, chunk_size=chunk_size,
+                                       batch_size=1)
+                self.assertEqual(count, 2)
+                self.assertEqual([c.args[1] for c in cursor.executemany.call_args_list],
+                                 [[('Ada',)], [('Grace',)]])
+                db.create_table.assert_not_called()
+                db.drop_table.assert_not_called()
+                cursor.execute.assert_not_called()  # No DDL or index changes.
+                db.conn.commit.assert_called_once()
+
+    def test_append_rejects_replace_or_missing_table_before_insertion(self):
+        self.db.table_exists = Mock(return_value=False)
+        for options, message in (({'append': True, 'replace': True}, 'mutually exclusive'),
+                                 ({'append': True}, 'existing table')):
+            with self.assertRaisesRegex(ValueError, message):
+                self.db.import_file(self.folder / 'missing.csv', 'users', **options)
+        self.cursor.executemany.assert_not_called()
+        self.db.conn.commit.assert_not_called()
+
+    def test_append_failure_rolls_back_all_batches_without_ddl(self):
+        source = self.folder / 'users.csv'
+        source.write_text('Name\nAda\nAda\n')
+        self.db.table_exists = Mock(return_value=True)
+        self.cursor.rowcount = 1
+        self.cursor.executemany.side_effect = [None, RuntimeError('unique constraint')]
+        with self.assertRaisesRegex(RuntimeError, 'unique constraint'):
+            self.db.import_file(source, 'users', append=True, chunk_size=1,
+                                column_types={'Name': 'VARCHAR(255)'}, batch_size=1)
+        self.db.conn.commit.assert_not_called()
+        self.db.conn.rollback.assert_called_once()
+        self.cursor.execute.assert_not_called()
 
     def test_csv_chunks_preserve_nullable_large_integer_and_unicode(self):
         source = self.folder / 'input.csv'

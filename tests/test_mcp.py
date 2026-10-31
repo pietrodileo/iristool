@@ -181,8 +181,9 @@ class MCPTests(unittest.IsolatedAsyncioTestCase):
         with patch('iristool.transfer.import_file', return_value=42) as importer:
             # create_server imports the helpers once, so create a fresh server under the patch.
             async with Client(create_server(self.config, factory=self.factory)) as client:
-                result = (await client.call_tool('iris_import_file', {'path': 'input.csv', 'table': 'Data'})).data
+                result = (await client.call_tool('iris_import_file', {'path': 'input.csv', 'table': 'Data', 'append': True})).data
                 self.assertEqual(result['rows'], 42)
+                self.assertTrue(importer.call_args.kwargs['append'])
                 self.assertEqual(importer.call_args.args[1], self.root / 'input.csv')
                 with self.assertRaisesRegex(Exception, 'inside'):
                     await client.call_tool('iris_import_file', {'path': '../input.csv', 'table': 'Data'})

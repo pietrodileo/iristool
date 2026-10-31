@@ -1,0 +1,23 @@
+# Local development fleet from docker-compose.fleet.yml.
+# Copy to .iristool.toml in the workspace used by your MCP client.
+default_server = "writable"
+
+[instance.writable]
+host = "localhost"
+port = 9191  # SQL port; Management Portal uses 9192
+namespace = "USER"
+username = "_SYSTEM"
+password = "SYS"  # Default login for the disposable development image
+read_only = false
+
+[instance.readonly]
+host = "localhost"
+port = 9291  # SQL port; Management Portal uses 9292
+namespace = "USER"
+username = "_SYSTEM"
+password = "SYS"
+read_only = true
+
+# read_only blocks MCP writes; _SYSTEM still has database write privileges.
+# Use a restricted SQL account for database-enforced read-only access.
+# The integration tests create restricted accounts temporarily and remove them.

@@ -20,12 +20,17 @@ variables; do not include passwords or source tokens in tool arguments.
 For imports:
 
 - Inspect `iris_describe_table` when targeting a table that may already exist.
-  Imports fail by default on existing tables. Use `replace=true` only when the
+  Imports fail by default on existing tables. For local files, use `append=true`
+  to insert rows while preserving existing rows, schema and indexes. Do not
+  replace a table merely to add rows. Append requires an existing table and
+  cannot be combined with `replace`; constraint failures roll back the import.
+  Use `replace=true` only when the
   user's request authorizes deleting that table's previous data. Replacement
   commits before insertion; failures can leave an empty new table.
 - `iris_import_file` accepts CSV/TSV, a JSON array of row objects, JSONL, and XLSX.
   For large CSV/TSV/JSONL files use `chunk_size` and complete `column_types`.
-  Explicit SQL types are required for streaming, so late chunks cannot silently
+  Appending to an existing table needs no `column_types`, including with chunking.
+  Explicit SQL types are required for streaming table creation, so late chunks cannot silently
   exceed a type inferred from an early sample. Without chunking, the entire file
   is loaded into memory and types can be inferred.
 - Preserve nullable integers, exact decimal requirements, and Unicode. Do not
