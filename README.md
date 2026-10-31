@@ -1,6 +1,6 @@
 # iristool
 
-![Version 0.5.0](https://img.shields.io/badge/version-0.5.0-blue?style=flat) ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat) ![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat) ![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
+![Version 0.5.1](https://img.shields.io/badge/version-0.5.1-blue?style=flat) ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat) ![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat) ![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
 
 **iristool** is a small Python library for moving data between pandas and InterSystems IRIS. Create a SQL table from a DataFrame, run parameterized queries, and manage rows, tables, views, and indexes through one connection object.
 

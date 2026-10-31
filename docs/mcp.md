@@ -147,7 +147,7 @@ reuses cached downloads when possible; it does not update an already running
 process. To update only when you choose, add `--upgrade` for one launch, then
 remove it from the client configuration.
 
-If you pin a version, such as `iristool[mcp]==0.5.0`, change that pin to the
+If you pin a version, such as `iristool[mcp]==0.5.1`, change that pin to the
 desired release. `--upgrade` does not override an explicit version requirement.
 
 For an installation made with `uv tool install`, run:
@@ -158,7 +158,7 @@ uv tool upgrade iristool
 
 Then restart the MCP server. Installed tools retain their extras and version
 constraints. To change a pinned installation, reinstall with the desired
-version and extras, for example `uv tool install --force 'iristool[mcp]==0.5.0'`.
+version and extras, for example `uv tool install --force 'iristool[mcp]==0.5.1'`.
 
 See [uv's tool version and upgrade documentation](https://docs.astral.sh/uv/concepts/tools/).
 
