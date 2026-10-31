@@ -16,8 +16,12 @@ password_env = "IRIS_DEV_PASSWORD"
 # password_env = "IRIS_REPORTING_PASSWORD"
 # read_only = true
 
-# Optional workspace-specific dataset accounts. Choose token OR token_env.
+# Optional dataset credentials for this workspace. Uncomment to enable.
+# Keep real tokens out of version control. Choose token OR token_env per provider.
 # [providers.huggingface]
 # token = "hf_your_token"
+# # Alternative: token_env = "THIS_WORKSPACE_HF_TOKEN"
+
 # [providers.kaggle]
-# token_env = "THIS_WORKSPACE_KAGGLE_TOKEN"
+# token = "your_kaggle_api_token"
+# # Alternative: token_env = "THIS_WORKSPACE_KAGGLE_TOKEN"

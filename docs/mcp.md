@@ -99,7 +99,7 @@ See [workspace discovery](#workspace-discovery) for the technical details and
 how to select a folder explicitly.
 
 Opening another project does not require reinstalling iristool. To update the
-shared installation, run `uv tool upgrade iristool`.
+shared installation, run `uv tool upgrade --all`.
 
 ### Option 2: Run with uvx
 
@@ -123,42 +123,20 @@ Pin the package version in your client configuration to reproduce an installatio
 The library supports Python 3.10+; the MCP extra uses FastMCP 2.14.x and `tomli`
 on Python 3.10.
 
-`uvx` can keep using a cached version after a new release is published. Add
-`--upgrade` before `--from` to check for updates each time the MCP server starts,
-then restart the server to apply them. See [upgrade instructions](#upgrade-the-mcp-server)
-for pinned versions and persistent installations.
+`uvx` can keep using a cached version after a new release is published.
+See [upgrade instructions](#upgrade-the-mcp-server) for installed tools.
 
 ### Upgrade the MCP server
 
-Publishing a new version on PyPI does not update a running MCP server.
-An ordinary `uvx` launch can keep using its cached version; it does not
-automatically check for a new release on every launch.
-
-To check for updates each time your client starts the server, add `--upgrade`
-before `--from` in its arguments:
-
-```json
-["--upgrade", "--from", "iristool[all]", "iristool-mcp"]
-```
-
-Keep any client-specific workspace arguments after `iristool-mcp`. Restart
-the MCP server to run the updated version. This checks PyPI at launch and
-reuses cached downloads when possible; it does not update an already running
-process. To update only when you choose, add `--upgrade` for one launch, then
-remove it from the client configuration.
-
-If you pin a version, such as `iristool[mcp]==0.5.1`, change that pin to the
-desired release. `--upgrade` does not override an explicit version requirement.
-
-For an installation made with `uv tool install`, run:
+To upgrade all tools installed with `uv tool install`, including iristool, run:
 
 ```bash
-uv tool upgrade iristool
+uv tool upgrade --all
 ```
 
 Then restart the MCP server. Installed tools retain their extras and version
-constraints. To change a pinned installation, reinstall with the desired
-version and extras, for example `uv tool install --force 'iristool[mcp]==0.5.1'`.
+constraints; change any version pin to allow a newer release. This command
+updates installed tools, not environments cached only by `uvx`.
 
 See [uv's tool version and upgrade documentation](https://docs.astral.sh/uv/concepts/tools/).
 
