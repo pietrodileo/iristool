@@ -598,6 +598,54 @@ CSV keeps column headers for empty tables. JSON writes an array of row objects;
 JSONL writes one object per line. Row order is not guaranteed. XLSX loads the
 whole table into pandas and returns `rows=null`.
 
+### Excel sheets
+
+Install the `excel` extra alongside `mcp`. `iris_import_file` selects one XLSX
+sheet using `sheet_name`: a name or a zero-based integer, default `0`:
+
+```json
+{"path": "source.xlsx", "table": "People", "sheet_name": "People"}
+```
+
+For the second sheet, use `"sheet_name": 1`. Missing sheets and invalid
+selectors fail before table creation/replacement. XLSX imports load only the
+selected sheet into memory and do not support `chunk_size`.
+
+`iris_export_table` takes a sheet name (default `Sheet1`) and `append`.
+Call it sequentially with the same path and different names to build a workbook:
+
+```json
+{"table": "People", "path": "report.xlsx", "sheet_name": "People", "append": true}
+```
+
+```json
+{"table": "Orders", "path": "report.xlsx", "sheet_name": "Orders", "append": true}
+```
+
+To refresh just People while preserving Orders:
+
+```json
+{"table": "People", "path": "report.xlsx", "sheet_name": "People", "append": true, "overwrite": true}
+```
+
+With `append=true`, a missing file is created; an existing sheet requires
+`overwrite=true`. Name collisions ignore case. Without append,
+`overwrite=true` replaces the whole workbook. Names must be nonblank, at most
+31 characters, without `\\ / * ? : [ ]` or edge apostrophes. Sheet options
+are rejected for CSV/JSON/JSONL. Selection arguments also work with XLSX.
+
+Exports are permitted on read-only IRIS connections and stay inside the
+workspace. Each call writes a temporary workbook and publishes it atomically;
+failure preserves the old file. Several calls are separate operations, and
+concurrent writers to one file can lose changes: call sequentially. XLSX uses
+memory for the result and existing workbook and returns `rows=null`. Use data
+workbooks: advanced Excel objects unsupported by openpyxl may be lost on save.
+Excel numeric precision limits apply; keep long identifiers as text.
+
+Python `db.import_file()`, `db.export_table()` and `db.export_query()` expose
+the same sheet controls. Export CLI: `--sheet-name People --append`, plus
+`--overwrite` to replace an existing sheet.
+
 ### Export subsets
 
 Pass `columns`, `filters`, `order_by` and `limit` to `iris_export_table` to

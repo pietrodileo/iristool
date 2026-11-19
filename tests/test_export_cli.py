@@ -20,9 +20,20 @@ class ExportCLITests(unittest.TestCase):
                         contextlib.redirect_stdout(io.StringIO()) as output:
                     main_export()
                 db.export_table.assert_called_once_with('People', 'people.csv',
-                                                        table_schema=schema, overwrite=overwrite)
+                                                        table_schema=schema, overwrite=overwrite,
+                                                        sheet_name=None, append=False)
                 connection.__exit__.assert_called_once()
                 self.assertIn('Exported to people.csv', output.getvalue())
+
+    def test_xlsx_sheet_options(self):
+        with patch('iristool.cli._connection') as connect, \
+                patch('sys.argv', ['iristool-export', 'People', 'report.xlsx',
+                                   '--sheet-name', 'People', '--append', '--overwrite']), \
+                contextlib.redirect_stdout(io.StringIO()):
+            main_export()
+        connect.return_value.__enter__.return_value.export_table.assert_called_once_with(
+            'People', 'report.xlsx', table_schema='SQLUser', overwrite=True,
+            sheet_name='People', append=True)
 
     def test_export_errors_exit_nonzero_and_close_connection(self):
         for error in (FileExistsError('already exists'), ValueError('invalid format'),

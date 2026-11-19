@@ -78,6 +78,25 @@ class TransferIntegrationTests(unittest.TestCase):
                         column_types={'Number': 'INT'})
         self.assertEqual(int(self.db.fetch(f'SELECT COUNT(*) AS N FROM SQLUser.{self.table}').iloc[0, 0]), 0)
 
+    @unittest.skipUnless(importlib.util.find_spec('openpyxl'), 'requires iristool[excel]')
+    def test_xlsx_sheet_import_and_multiple_sheet_export(self):
+        import pandas as pd
+        source = self.root / 'source.xlsx'
+        with pd.ExcelWriter(source) as writer:
+            pd.DataFrame({'Number': [99]}).to_excel(writer, sheet_name='Skip', index=False)
+            pd.DataFrame({'Number': [1, 2], 'Name': ['Città', 'Ada']}).to_excel(
+                writer, sheet_name='People', index=False)
+        self.assertEqual(self.db.import_file(source, self.table, sheet_name='People'), 2)
+        output = self.db.export_table(self.table, self.root / 'out.xlsx', sheet_name='All')
+        self.db.export_table(self.table, output, sheet_name='Selected', append=True,
+                             filters=[{'column': 'Number', 'op': '=', 'value': 2}])
+        with pd.ExcelFile(output) as book:
+            self.assertEqual(book.sheet_names, ['All', 'Selected'])
+            self.assertEqual(len(pd.read_excel(book, sheet_name='All')), 2)
+            self.assertEqual(pd.read_excel(book, sheet_name='Selected')['Name'].tolist(), ['Ada'])
+        self.db.export_table(self.table, output, sheet_name='Selected', append=True, overwrite=True)
+        self.assertEqual(len(pd.read_excel(output, sheet_name='Selected')), 2)
+
     @unittest.skipUnless(importlib.util.find_spec('fastmcp'), 'requires iristool[mcp]')
     def test_stdio_mcp_import_metadata_index_and_export(self):
         from fastmcp import Client
@@ -109,4 +128,14 @@ class TransferIntegrationTests(unittest.TestCase):
                     'order_by': [{'column': 'Number', 'direction': 'DESC'}], 'limit': 1})).data
                 self.assertEqual(subset['rows'], 1)
                 self.assertEqual(json.loads((self.root / 'subset.json').read_text()), [{'Number': 9007199254740993}])
+                if importlib.util.find_spec('openpyxl'):
+                    import pandas as pd
+                    for sheet in ('All', 'Copy'):
+                        await client.call_tool('iris_export_table', {
+                            'table': self.table, 'path': 'book.xlsx', 'sheet_name': sheet, 'append': True})
+                    with pd.ExcelFile(self.root / 'book.xlsx') as book:
+                        self.assertEqual(book.sheet_names, ['All', 'Copy'])
+                    result = (await client.call_tool('iris_import_file', {
+                        'path': 'book.xlsx', 'table': self.table, 'sheet_name': 1, 'replace': True})).data
+                    self.assertEqual(result['rows'], 2)
         asyncio.run(check())

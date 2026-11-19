@@ -192,6 +192,45 @@ class MCPTests(unittest.IsolatedAsyncioTestCase):
                 result = (await client.call_tool('iris_export_table', {'path': 'out.csv', 'table': 'Data', 'server': 'prod'})).data
                 self.assertEqual(result['rows'], 2)
 
+    @unittest.skipUnless(importlib.util.find_spec('openpyxl'), 'requires iristool[excel]')
+    async def test_xlsx_sheets_round_trip_and_validation(self):
+        from test_iristool import disconnected_tool
+        db, cursor = disconnected_tool()
+        cursor.description = [('N',)]
+        cursor.fetchall.return_value = [(1,), (2,)]
+        async with Client(create_server(self.config, factory=lambda **kw: db)) as client:
+            for sheet in ('First', 'Data'):
+                result = (await client.call_tool('iris_export_table', {
+                    'table': 'Data', 'path': 'book.xlsx', 'server': 'prod',
+                    'sheet_name': sheet, 'append': True})).data
+                self.assertIsNone(result['rows'])
+            with self.assertRaisesRegex(Exception, 'Sheet exists'):
+                await client.call_tool('iris_export_table', {
+                    'table': 'Data', 'path': 'book.xlsx', 'sheet_name': 'Data', 'append': True})
+            cursor.fetchall.return_value = [(3,)]
+            await client.call_tool('iris_export_table', {
+                'table': 'Data', 'path': 'book.xlsx', 'sheet_name': 'Data',
+                'append': True, 'overwrite': True})
+            for sheet in ('Data', 1):
+                result = (await client.call_tool('iris_import_file', {
+                    'table': 'Imported', 'path': 'book.xlsx', 'sheet_name': sheet})).data
+                self.assertEqual(result['rows'], 1)
+                self.assertEqual(cursor.executemany.call_args.args[1], [(3,)])
+            with pd.ExcelFile(self.root / 'book.xlsx') as book:
+                self.assertEqual(book.sheet_names, ['First', 'Data'])
+                self.assertEqual(pd.read_excel(book, sheet_name='First')['N'].tolist(), [1, 2])
+            for sheet in (True, -1, 1.5, None, [], 'Missing'):
+                with self.subTest(sheet=sheet), self.assertRaises(Exception):
+                    await client.call_tool('iris_import_file', {
+                        'table': 'Imported', 'path': 'book.xlsx', 'sheet_name': sheet})
+            for options in ({'sheet_name': 'Invalid/Sheet'}, {'path': 'out.csv', 'append': True}):
+                with self.assertRaises(Exception):
+                    await client.call_tool('iris_export_table', {
+                        'table': 'Data', 'path': 'bad.xlsx', **options})
+            with self.assertRaisesRegex(Exception, 'inside'):
+                await client.call_tool('iris_export_table', {
+                    'table': 'Data', 'path': '../book.xlsx', 'append': True})
+
     async def test_subset_export_is_structured_and_allowed_on_read_only_server(self):
         self.db._identifier.side_effect = lambda name: '"' + name + '"'
         cursor = Mock()

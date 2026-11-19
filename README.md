@@ -1,6 +1,6 @@
 # iristool
 
-![Version 0.5.1](https://img.shields.io/badge/version-0.5.1-blue?style=flat) ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat) ![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat) ![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
+![Version 0.6.0](https://img.shields.io/badge/version-0.6.0-blue?style=flat) ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat) ![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat) ![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
 
 **iristool** is a small Python library for moving data between pandas and InterSystems IRIS. Create a SQL table from a DataFrame, run parameterized queries, and manage rows, tables, views, and indexes through one connection object.
 
@@ -20,6 +20,7 @@ What iristool does
 
 - **DataFrame to SQL:** create a table, infer column types, and insert rows in batches.
 - **SQL to DataFrame:** retrieve query results with optional bound parameters.
+- **Excel sheets:** import a sheet by name or index; export tables/subsets to named sheets in the same XLSX from Python, MCP or the export CLI.
 - **Table export:** save a table as CSV, XLSX, or JSON through pandas.
 - **Data handling:** normalize column names and convert pandas missing values to SQL `NULL`.
 - **Import control:** choose whether to fail, skip, or replace an existing table; supply explicit types, a primary key, constraints, and indexes.
@@ -629,8 +630,47 @@ with IRIStool(**connection) as db:
     db.export_table("KaggleIris", "iris.csv", overwrite=True, sep=";")
 ```
 
-Set `chunk_size` to control export memory. XLSX, custom pandas writer arguments, or `chunk_size=None` use a whole-table DataFrame. Extra keyword arguments go to pandas `to_csv`, `to_excel`, or `to_json`; no row ordering is guaranteed. For a filtered or ordered export, use `db.fetch(...)` and the pandas writer directly.
+Set `chunk_size` to control export memory. XLSX, custom pandas writer arguments, or `chunk_size=None` use a whole-table DataFrame. Extra keyword arguments go to pandas `to_csv`, `to_excel`, or `to_json`; no row ordering is guaranteed. For a filtered or ordered export, use the selection arguments below.
 Exports write a temporary file and publish it only after success. A failure preserves an existing destination, including with `overwrite=True`. This does not change the source table.
+
+### Export multiple Excel sheets
+
+Use `sheet_name` for the output sheet (default `Sheet1`). Add sheets by exporting
+sequentially to the same path with `append=True`; a missing workbook is created:
+
+```python
+with IRIStool(**connection) as db:
+    db.export_table("People", "report.xlsx", sheet_name="People", append=True)
+    db.export_table("Orders", "report.xlsx", sheet_name="Orders", append=True)
+    db.export_table("People", "report.xlsx", sheet_name="Adults", append=True,
+                    filters=[{"column": "Age", "op": ">=", "value": 18}])
+    # Refresh just People, preserving Orders and Adults:
+    db.export_table("People", "report.xlsx", sheet_name="People",
+                    append=True, overwrite=True)
+```
+
+`db.export_query()` accepts the same `sheet_name`, `append` and `overwrite`
+options. Each call writes one sheet. `append=True` preserves other sheets and
+refuses an existing sheet unless `overwrite=True` (sheet names compare without
+case). Without append, `overwrite=True` replaces the entire workbook. Sheet
+names must be nonblank strings of at most 31 characters, without `\\ / * ? : [ ]`
+or leading/trailing apostrophes. Sheet options are rejected for other formats.
+
+The CLI supports the same policy:
+
+```bash
+iristool-export People report.xlsx --sheet-name People --append
+iristool-export Orders report.xlsx --sheet-name Orders --append
+iristool-export People report.xlsx --sheet-name People --append --overwrite
+```
+
+MCP's `iris_export_table` exposes `sheet_name` and `append` too; see
+[Excel transfers](docs/mcp.md#excel-sheets). Each call publishes atomically;
+several calls are separate operations. Use sequential calls for a shared file:
+concurrent writers can overwrite one another's changes. XLSX loads the result
+and, when appending, the existing workbook into memory. This uses openpyxl for
+data workbooks; advanced Excel objects unsupported by openpyxl may not survive
+a save. Excel numeric precision limits apply; export long identifiers as text.
 
 ### Export selected rows and columns
 
@@ -689,6 +729,24 @@ with IRIStool(**connection) as db:
 ```
 
 Core and MCP share this file reader and transaction behavior. CSV/TSV and JSONL stream when `chunk_size` and complete `column_types` are supplied. Omit both to infer types from the whole input. `batch_size` controls SQL insertion batches separately. XLSX and JSON records arrays load into memory. Failed inserts roll back all rows, but table creation/replacement commits first. Existing `df_to_table()` callers continue to work.
+
+### Import an Excel sheet
+
+Install `iristool[excel]`, then select exactly one sheet by its name or its
+zero-based position. The default is `sheet_name=0` (the first sheet):
+
+```python
+with IRIStool(**connection) as db:
+    db.import_file("source.xlsx", "People", sheet_name="People")
+    db.import_file("source.xlsx", "Orders", sheet_name=1)
+```
+
+Missing names/positions and invalid selectors fail before table creation or
+replacement. XLSX reads the selected sheet into memory; `chunk_size` is not
+supported. `replace=True` replaces the target IRIS table; `append=True` adds
+rows to an existing table. These import flags concern IRIS rows, while export
+`append=True` concerns workbook sheets. MCP's `iris_import_file` accepts the
+same `sheet_name` selector.
 
 ### Append to an existing table
 
@@ -825,7 +883,9 @@ Most table helpers default to `table_schema="SQLUser"`. See the method docstring
 | Method                                                                              | Purpose                                                       |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | `df_to_table(df, table_name, ...)`                                                  | Create a table and import a DataFrame                         |
-| `export_table(table_name, path, table_schema="SQLUser", overwrite=False, **kwargs)` | Export a table to CSV/XLSX/JSON; refuse overwrites by default |
+| `import_file(path, table_name, ..., sheet_name=0)` | Import a local file; select one XLSX sheet by name or index |
+| `export_table(table_name, path, ..., sheet_name=None, append=False, **kwargs)` | Export CSV/XLSX/JSON/JSONL; add or replace selected XLSX sheets |
+| `export_query(sql, path, parameters=None, ..., sheet_name=None, append=False)` | Export a parameterized query with the same file/sheet policy |
 | `fetch(sql, parameters=None)`                                                       | Return query results as a DataFrame                           |
 | `insert_row(table_name, values)`                                                    | Insert one dictionary of values                               |
 | `insert_many(table_name, rows)`                                                     | Insert dictionaries in a batch                                |

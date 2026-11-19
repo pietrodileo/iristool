@@ -78,6 +78,52 @@ class ExportTests(unittest.TestCase):
         data = self.db.export_table('People', self.folder / 'empty.json')
         self.assertEqual(json.loads(data.read_text()), [])
 
+    @unittest.skipUnless(importlib.util.find_spec('openpyxl'), 'requires iristool[excel]')
+    def test_xlsx_multiple_sheets_and_explicit_sheet_replacement(self):
+        path = self.folder / 'report.xlsx'
+        self.db.export_table('People', path, sheet_name='People', append=True)
+        self.cursor.fetchall.return_value = [('Grace', 5)]
+        self.db.export_query('SELECT * FROM People', path, sheet_name='Subset', append=True)
+        original = path.read_bytes()
+        with self.assertRaisesRegex(FileExistsError, 'Sheet exists'):
+            self.db.export_table('People', path, sheet_name='people', append=True)
+        self.assertEqual(path.read_bytes(), original)
+        self.db.export_table('People', path, sheet_name='people', append=True, overwrite=True)
+        with pd.ExcelFile(path) as workbook:
+            self.assertEqual(workbook.sheet_names, ['People', 'Subset'])
+            self.assertEqual(pd.read_excel(workbook, sheet_name='People')['Name'].tolist(), ['Grace'])
+            self.assertEqual(pd.read_excel(workbook, sheet_name='Subset')['Name'].tolist(), ['Grace'])
+        self.db.export_table('People', path, overwrite=True)
+        with pd.ExcelFile(path) as workbook:
+            self.assertEqual(workbook.sheet_names, ['Sheet1'])
+
+    @unittest.skipUnless(importlib.util.find_spec('openpyxl'), 'requires iristool[excel]')
+    def test_xlsx_append_failure_preserves_workbook_and_removes_temporary(self):
+        path = self.db.export_table('People', self.folder / 'report.xlsx')
+        original = path.read_bytes()
+        with patch.object(pd.DataFrame, 'to_excel', side_effect=RuntimeError('write failed')):
+            with self.assertRaisesRegex(RuntimeError, 'write failed'):
+                self.db.export_table('People', path, sheet_name='New', append=True)
+        self.assertEqual(path.read_bytes(), original)
+        self.assertEqual(list(self.folder.iterdir()), [path])
+        path.write_bytes(b'corrupt workbook')
+        with self.assertRaises(Exception):
+            self.db.export_table('People', path, sheet_name='New', append=True)
+        self.assertEqual(path.read_bytes(), b'corrupt workbook')
+        self.assertEqual(list(self.folder.iterdir()), [path])
+
+    def test_invalid_sheet_options_do_not_write(self):
+        for sheet in ('', '  ', 'x' * 32, 'bad/name', 'bad\\name', 'bad:name', 'bad*name',
+                      'bad?name', '[bad]', "'bad", "bad'", 0, [], True):
+            with self.subTest(sheet=sheet), self.assertRaisesRegex(ValueError, 'sheet_name'):
+                self.db.export_table('People', self.folder / 'bad.xlsx', sheet_name=sheet)
+        for suffix in ('.csv', '.json', '.jsonl'):
+            for options in ({'sheet_name': 'Data'}, {'append': True}):
+                with self.assertRaisesRegex(ValueError, 'only for XLSX'):
+                    self.db.export_table('People', self.folder / ('bad' + suffix), **options)
+        self.cursor.execute.assert_not_called()
+        self.assertEqual(list(self.folder.iterdir()), [])
+
     def test_existing_file_is_protected_and_replacement_is_explicit(self):
         path = self.folder / 'people.csv'
         path.write_text('keep me')

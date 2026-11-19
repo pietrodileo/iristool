@@ -28,6 +28,8 @@ For imports:
   user's request authorizes deleting that table's previous data. Replacement
   commits before insertion; failures can leave an empty new table.
 - `iris_import_file` accepts CSV/TSV, a JSON array of row objects, JSONL, and XLSX.
+  For XLSX, select one `sheet_name` by name or zero-based index (default 0).
+  Missing sheets fail before DDL; XLSX does not support `chunk_size`.
   For large CSV/TSV/JSONL files use `chunk_size` and complete `column_types`.
   Appending to an existing table needs no `column_types`, including with chunking.
   Explicit SQL types are required for streaming table creation, so late chunks cannot silently
@@ -52,7 +54,20 @@ all columns. Creating a unique index can fail if existing data has duplicates.
 `iris_export_table` writes local CSV, JSON records, JSONL, or XLSX. CSV/JSON/JSONL
 use bounded chunks; XLSX holds the full table in memory and returns `rows=null`.
 Existing files fail unless `overwrite=true`; failed exports preserve the old
-file. Exports have no guaranteed row order. Verify the returned path and row count
+file. For XLSX, `sheet_name` defaults to `Sheet1`; `append=true` adds a sheet to
+the same file, preserving other sheets (or creates the workbook if missing).
+Call sequentially with different sheet names to export multiple tables/subsets.
+An existing sheet, compared without case, requires `overwrite=true`; with
+append this replaces only that sheet. Without append, overwrite replaces the
+whole workbook. Sheet names must be nonblank, at most 31 characters, without
+`\\ / * ? : [ ]` or edge apostrophes. Sheet options require XLSX. Each call is
+atomic, but several calls are separate operations; concurrent writers can lose
+changes. Existing workbooks also load into memory. Use data workbooks; advanced
+Excel objects unsupported by openpyxl may be lost. Keep long numeric identifiers
+as text to avoid Excel precision loss. Python `import_file`, `export_table`,
+and `export_query` share these controls; the export CLI has `--sheet-name`
+and `--append`. Import append concerns IRIS rows; export append concerns sheets.
+Exports have no guaranteed row order. Verify the returned path and row count
 when available. The server does not publish datasets to HF or Kaggle.
 
 Provider credentials come from the selected workspace's `[providers.huggingface]`

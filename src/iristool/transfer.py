@@ -5,6 +5,8 @@ from contextlib import closing, nullcontext
 import json
 import os
 from pathlib import Path
+import re
+import shutil
 import tempfile
 
 import pandas as pd
@@ -75,6 +77,9 @@ def import_file(db, path, table, *, schema="SQLUser", replace=False, append=Fals
         with path.open(encoding="utf-8") as source:
             frames = _json_frame(json.load(source))
     elif suffix == ".xlsx":
+        if not ((type(sheet_name) is int and sheet_name >= 0) or
+                (isinstance(sheet_name, str) and sheet_name)):
+            raise ValueError("sheet_name must be a sheet name or a non-negative zero-based index.")
         frames = pd.read_excel(path, sheet_name=sheet_name, dtype_backend="numpy_nullable")
     else:
         raise ValueError("Choose a CSV, TSV, JSON, JSONL or XLSX input file.")
@@ -205,11 +210,13 @@ def export_file(db, table, path, *, schema="SQLUser", overwrite=False, chunk_siz
                         chunk_size=chunk_size, **kwargs)
 
 
-def export_query(db, sql, path, *, parameters=None, overwrite=False, chunk_size=10000, **kwargs):
+def export_query(db, sql, path, *, parameters=None, overwrite=False, chunk_size=10000,
+                 sheet_name=None, append=False, **kwargs):
     """Export CSV/JSON/JSONL in bounded chunks; XLSX uses a pandas DataFrame.
 
     Publish the completed file only after success. Existing output is preserved
     on failure, including with overwrite=True. Returns a path and row count.
+    XLSX append keeps other sheets; overwrite then replaces only sheet_name.
     """
     if chunk_size is not None:
         _positive(chunk_size, "chunk_size")
@@ -217,9 +224,18 @@ def export_query(db, sql, path, *, parameters=None, overwrite=False, chunk_size=
     suffix = path.suffix.lower()
     if suffix not in {".csv", ".json", ".jsonl", ".xlsx"}:
         raise ValueError("Choose a CSV, JSON, JSONL or XLSX output file.")
+    if suffix != ".xlsx" and (sheet_name is not None or append):
+        raise ValueError("sheet_name and append are supported only for XLSX exports.")
+    if suffix == ".xlsx":
+        sheet_name = "Sheet1" if sheet_name is None else sheet_name
+        if (not isinstance(sheet_name, str) or not sheet_name.strip() or len(sheet_name) > 31
+                or re.search(r"[\\/*?:\[\]]", sheet_name) or sheet_name.startswith("'")
+                or sheet_name.endswith("'")):
+            raise ValueError("sheet_name must be a valid Excel sheet name (1-31 characters, no \\ / * ? : [ ] or edge apostrophes).")
     if not isinstance(sql, str) or not sql.strip():
         raise ValueError("sql must be a non-empty query.")
-    if path.exists() and not overwrite:
+    existing_workbook = append and path.exists()
+    if path.exists() and not overwrite and not append:
         raise FileExistsError("Output exists; use overwrite=True to replace it.")
     if suffix == ".xlsx":
         try:
@@ -231,11 +247,24 @@ def export_query(db, sql, path, *, parameters=None, overwrite=False, chunk_size=
     temporary = Path(temporary)
     count = 0
     try:
+        if existing_workbook:
+            shutil.copyfile(path, temporary)
         if suffix == ".xlsx" or kwargs or chunk_size is None:
             # Arbitrary pandas options (e.g. JSON orient) can require the whole frame.
             frame = db.fetch(sql, parameters=parameters)
-            if suffix == ".xlsx":
-                frame.to_excel(temporary, **{"index": False, "engine": "openpyxl", **kwargs})
+            if existing_workbook:
+                with pd.ExcelWriter(temporary, engine="openpyxl", mode="a",
+                                    if_sheet_exists="replace") as writer:
+                    existing_sheet = next((name for name in writer.book.sheetnames
+                                           if name.casefold() == sheet_name.casefold()), None)
+                    if existing_sheet is not None:
+                        if not overwrite:
+                            raise FileExistsError("Sheet exists; use overwrite=True to replace it.")
+                        sheet_name = existing_sheet
+                    frame.to_excel(writer, sheet_name=sheet_name, **{"index": False, **kwargs})
+            elif suffix == ".xlsx":
+                frame.to_excel(temporary, sheet_name=sheet_name,
+                               **{"index": False, "engine": "openpyxl", **kwargs})
             elif suffix == ".csv":
                 frame.to_csv(temporary, **{"index": False, **kwargs})
             else:
@@ -276,7 +305,7 @@ def export_query(db, sql, path, *, parameters=None, overwrite=False, chunk_size=
                     count += len(rows)
                 if suffix == ".json":
                     output.write("]")
-        if overwrite:
+        if overwrite or existing_workbook:
             os.replace(temporary, path)
         else:
             os.link(temporary, path)  # Atomic no-clobber publication on the same filesystem.

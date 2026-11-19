@@ -134,8 +134,19 @@ class TransferTests(unittest.TestCase):
     @unittest.skipUnless(importlib.util.find_spec('openpyxl'), 'requires excel extra')
     def test_xlsx_sheet_selection(self):
         source = self.folder / 'data.xlsx'
-        pd.DataFrame({'N': [1, 2]}).to_excel(source, sheet_name='Data', index=False)
-        self.assertEqual(import_file(self.db, source, 'Data', sheet_name='Data'), 2)
+        with pd.ExcelWriter(source) as writer:
+            pd.DataFrame({'N': [99]}).to_excel(writer, sheet_name='First', index=False)
+            pd.DataFrame({'N': [1, 2]}).to_excel(writer, sheet_name='Data', index=False)
+        for sheet in ('Data', 1, 'First', 0):
+            self.cursor.executemany.reset_mock()
+            expected = [(1,), (2,)] if sheet in ('Data', 1) else [(99,)]
+            self.assertEqual(self.db.import_file(source, 'Data', sheet_name=sheet), len(expected))
+            self.assertEqual(self.cursor.executemany.call_args.args[1], expected)
+        self.cursor.execute.reset_mock()
+        for sheet in (None, [], True, -1, 1.5, '', 'Missing', 2):
+            with self.subTest(sheet=sheet), self.assertRaises(ValueError):
+                self.db.import_file(source, 'Data', sheet_name=sheet)
+        self.cursor.execute.assert_not_called()
 
     def test_streaming_export_formats_and_precision(self):
         for suffix in ('.csv', '.json', '.jsonl'):

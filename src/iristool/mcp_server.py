@@ -221,7 +221,8 @@ def create_server(config=None, *, factory=IRIStool, workspace=None, filename=Non
                                schema: str = "SQLUser", replace: bool = False, append: bool = False,
                                column_types: dict[str, str] | None = None,
                                batch_size: int = 1000, chunk_size: int | None = None,
-                               separator: str | None = None, sheet_name: str | int = 0) -> dict:
+                               separator: str | None = None,
+                               sheet_name: str | Annotated[int, Field(strict=True, ge=0)] = 0) -> dict:
         """Import workspace CSV/TSV, JSON records, JSONL or XLSX using pandas.
 
         chunk_size enables bounded-memory CSV/TSV/JSONL reads. Creating or replacing
@@ -231,6 +232,7 @@ def create_server(config=None, *, factory=IRIStool, workspace=None, filename=Non
         append=True inserts into an existing table, preserving rows, schema and
         indexes. It cannot be combined with replace. Chunked appends need no
         column_types; database constraints apply and failures roll back the import.
+        XLSX sheet_name selects one sheet by name or zero-based index (default 0).
         """
         fleet, config = await resolve()
         def operation(db):
@@ -249,22 +251,28 @@ def create_server(config=None, *, factory=IRIStool, workspace=None, filename=Non
                                 chunk_size: int = 10000, columns: list[str] | None = None,
                                 filters: list[dict] | None = None,
                                 order_by: list[dict] | None = None,
-                                limit: Annotated[int, Field(strict=True, gt=0)] | None = None) -> dict:
+                                limit: Annotated[int, Field(strict=True, gt=0)] | None = None,
+                                sheet_name: str | None = None, append: bool = False) -> dict:
         """Export to workspace CSV/JSON/JSONL in chunks, or XLSX in memory.
 
         Does not modify IRIS, so allowed on read-only servers. Existing files
-        require overwrite=True. The previous output survives a failed export.
+        require overwrite=True unless adding a new XLSX sheet with append=True.
+        The previous output survives a failed export.
         Select columns; filters are ANDed {column, op, value} objects. Allowed op:
         =, !=, <>, <, <=, >, >=, IN (list value), IS NULL/IS NOT NULL (omit value).
         order_by is [{column, direction: ASC|DESC}]. limit is a positive integer.
         Values are bound; no SQL expressions accepted. Order explicitly for
         reproducible limited results. XLSX returns rows=null.
+        XLSX sheet_name defaults to Sheet1. append=True adds a sheet while keeping
+        other sheets; overwrite=True then replaces only the selected sheet.
+        Without append, overwrite=True replaces the entire file.
         """
         fleet, config = await resolve()
         def operation(db):
             result = export_file(db, table, config.local_path(path), schema=schema,
                                  overwrite=overwrite, chunk_size=chunk_size, columns=columns,
-                                 filters=filters, order_by=order_by, limit=limit)
+                                 filters=filters, order_by=order_by, limit=limit,
+                                 sheet_name=sheet_name, append=append)
             result["warnings"] = ["XLSX export loads the whole table into memory."] if path.lower().endswith(".xlsx") else []
             return result
         return await fleet.call(server, False, operation)

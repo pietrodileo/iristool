@@ -24,11 +24,14 @@ def main_export():
     parser.add_argument("output", help="Output file ending in .csv, .xlsx or .json")
     parser.add_argument("--schema", default="SQLUser", help="SQL schema (default: SQLUser)")
     parser.add_argument("--overwrite", action="store_true", help="Replace an existing output file")
+    parser.add_argument("--sheet-name", help="XLSX sheet name (default: Sheet1)")
+    parser.add_argument("--append", action="store_true", help="Keep other XLSX sheets; --overwrite replaces only the selected sheet")
     args = parser.parse_args()
     try:
         with _connection() as db:
             path = db.export_table(args.table, args.output, table_schema=args.schema,
-                                   overwrite=args.overwrite)
+                                   overwrite=args.overwrite, sheet_name=args.sheet_name,
+                                   append=args.append)
     except Exception as exc:
         parser.exit(1, f"Export failed: {exc}\n")
     print(f"Exported to {path}")

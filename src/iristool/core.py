@@ -191,6 +191,7 @@ class IRIStool:
         Inserts share one transaction; table creation/replacement commits first.
         append=True requires an existing table and preserves its schema and indexes;
         it cannot be combined with replace. Chunked appends need no column_types.
+        XLSX sheet_name selects one sheet by name or zero-based index (default 0).
         """
         from .transfer import import_file
         return import_file(self, path, table_name, schema=table_schema,
@@ -200,7 +201,8 @@ class IRIStool:
 
     def export_table(self, table_name: str, path, table_schema: str = "SQLUser",
                      *, overwrite: bool = False, chunk_size: int | None = 10000,
-                     columns=None, filters=None, order_by=None, limit=None, **kwargs) -> Path:
+                     columns=None, filters=None, order_by=None, limit=None,
+                     sheet_name=None, append=False, **kwargs) -> Path:
         """Export CSV, JSON/JSONL or XLSX, atomically publishing a completed file.
 
         CSV/JSON/JSONL stream in bounded chunks by default. XLSX, custom pandas
@@ -210,25 +212,29 @@ class IRIStool:
         Optional columns, ANDed filters ({column, op, value}), order_by
         ({column, direction}) and positive limit select a subset inside IRIS.
         NULL filters omit value; IN uses a non-empty list. No SQL fragments.
+        XLSX sheet_name defaults to Sheet1. append=True preserves other sheets;
+        overwrite=True then replaces only the selected sheet, if present.
         """
         from .transfer import export_file
         export_file(self, table_name, path, schema=table_schema,
                     overwrite=overwrite, chunk_size=chunk_size, columns=columns,
-                    filters=filters, order_by=order_by, limit=limit, **kwargs)
+                    filters=filters, order_by=order_by, limit=limit,
+                    sheet_name=sheet_name, append=append, **kwargs)
         return Path(path)
 
     def export_query(self, sql: str, path, parameters=None, *, overwrite=False,
-                     chunk_size: int | None = 10000, **kwargs) -> Path:
+                     chunk_size: int | None = 10000, sheet_name=None, append=False, **kwargs) -> Path:
         """Export a query result with bound parameters and atomic file publication.
 
         CSV/JSON/JSONL stream via fetchmany. XLSX, custom pandas writer options,
         or chunk_size=None materialize the result. SQL executes with the account's
         permissions; this Python API does not enforce read-only SQL. Use unique
         column aliases for joins. Does not commit or close the connection.
+        XLSX sheet_name and append follow export_table's sheet replacement policy.
         """
         from .transfer import export_query
         export_query(self, sql, path, parameters=parameters, overwrite=overwrite,
-                     chunk_size=chunk_size, **kwargs)
+                     chunk_size=chunk_size, sheet_name=sheet_name, append=append, **kwargs)
         return Path(path)
 
     def insert_row(self, table_name: str, values: dict, table_schema: str = "SQLUser") -> None:
