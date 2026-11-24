@@ -502,6 +502,9 @@ discovery vary by client.
 | `iris_export_table` | Local CSV/JSON/JSONL in chunks, XLSX in memory |
 | `iris_import_huggingface` | Import one HF split using the optional integration |
 | `iris_import_kaggle` | Import selected or all CSV/TSV files using the optional integration |
+| `iris_resolve_global` | Resolve the root or a subscript in the configured namespace and list mapping destinations |
+| `iris_export_globals` | Export a selection of whole globals together to one new workspace GOF file |
+| `iris_import_globals` | Merge a workspace GOF into an explicit writable connection, optionally selecting globals from a block file |
 
 All database tools accept `server` to select a fleet connection. Table tools
 also accept `schema`, which defaults to `SQLUser`. The SQL schema is separate

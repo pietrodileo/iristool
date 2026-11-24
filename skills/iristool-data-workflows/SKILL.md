@@ -1,6 +1,6 @@
 ---
 name: iristool-data-workflows
-description: Move local tabular files or Hugging Face/Kaggle datasets into InterSystems IRIS through iristool MCP, inspect tables, create indexes, and export local files. Use for iristool data workflows; ObjectScript development is outside this skill.
+description: Import and export tabular data or native IRIS globals, resolve class storage and global mappings, inspect tables, and create indexes using iristool MCP.
 ---
 
 Use `iris_servers` to identify configured names, namespaces, write permissions,
@@ -16,6 +16,26 @@ per workspace or an explicit workspace override rather than guessing. File paths
 resolve inside the workspace selected for that call. The server rejects paths escaping that
 workspace. Credentials come from its TOML configuration or referenced environment
 variables; do not include passwords or source tokens in tool arguments.
+
+For global storage and migration:
+
+- In `<DataLocation>^|"NPRI_MFDDC_TEST"|BDA.ANAGSEDID</DataLocation>`,
+  select the source connection for namespace `NPRI_MFDDC_TEST` and pass
+  `BDA.ANAGSEDID` to `iris_resolve_global`. An unqualified reference uses
+  the class's effective namespace. Read the physical destination and mapping
+  rows from IRIS. For a specific node, pass its native subscript expression
+  (for example `"east",1`). Subtrees can have different destinations.
+- For a class migration, inspect its full storage definition for index,
+  stream and other application globals required alongside the data global.
+  Select the intended globals explicitly. Use `iris_export_globals` with a
+  list of names to create one new workspace `.gof`. Auto uses block for
+  eligible selections and ISM for selections containing mapped data.
+- Select the target instance and namespace independently. Resolve target
+  mappings before importing, including whether source and target share a
+  physical database. `iris_import_globals` merges nodes into the destination
+  and can overwrite matching values. Omit names to import the entire file.
+  A list selects individual globals only in block files. Verify the expected
+  target nodes after import; a failed import can require reconciliation.
 
 For imports:
 

@@ -277,6 +277,33 @@ def create_server(config=None, *, factory=IRIStool, workspace=None, filename=Non
             return result
         return await fleet.call(server, False, operation)
 
+    @mcp.tool(annotations={"readOnlyHint": True})
+    async def iris_resolve_global(name: str, server: str | None = None, subscript: str = "") -> dict:
+        """Locate a global and its mappings in the configured namespace."""
+        from .globals import resolve_global
+        fleet, _ = await resolve()
+        return await fleet.call(server, False, lambda db: resolve_global(db, name, subscript))
+
+    @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False})
+    async def iris_export_globals(names: list[str], path: str, server: str | None = None,
+                                  output_format: str = "auto", records: str = "V",
+                                  translation: str = "") -> dict:
+        """Export globals together to a new workspace GOF file using native IRIS format."""
+        from .globals import export_globals
+        fleet, config = await resolve()
+        return await fleet.call(server, False, lambda db: export_globals(
+            db, names, config.local_path(path), output_format=output_format,
+            records=records, translation=translation))
+
+    @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True})
+    async def iris_import_globals(path: str, server: str, names: list[str] | None = None,
+                                  input_format: str = "ism", records: str = "V") -> dict:
+        """Merge workspace GOF into the configured namespace. Omit names for the whole file."""
+        from .globals import import_globals
+        fleet, config = await resolve()
+        return await fleet.call(server, True, lambda db: import_globals(
+            db, config.local_path(path), names=names, input_format=input_format, records=records))
+
     @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": True, "openWorldHint": True})
     async def iris_import_huggingface(dataset: str, server: str | None = None,
                                       table: str | None = None, schema: str = "SQLUser",

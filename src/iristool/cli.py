@@ -1,9 +1,46 @@
 """Core command-line tools; credentials come from IRIS_* environment variables."""
 
 import argparse
+import json
 import os
 
 from iristool import IRIStool
+
+
+def main_globals():
+    from .globals import FORMATS, export_globals, import_globals, resolve_global
+    parser = argparse.ArgumentParser(description="Transfer native IRIS global files")
+    commands = parser.add_subparsers(dest="command", required=True)
+    locate = commands.add_parser("resolve")
+    locate.add_argument("name")
+    locate.add_argument("--subscript", default="")
+    export = commands.add_parser("export")
+    export.add_argument("path")
+    export.add_argument("names", nargs="+")
+    export.add_argument("--format", choices=FORMATS, default="auto")
+    export.add_argument("--translation", default="")
+    load = commands.add_parser("import")
+    load.add_argument("path")
+    load.add_argument("--names", nargs="+")
+    load.add_argument("--format", choices=[f for f in FORMATS if f != "auto"], default="ism")
+    for command in (export, load):
+        command.add_argument("--records", choices=["V", "S"], default="V")
+        command.add_argument("--server-file", action="store_true", help="Path on the IRIS host")
+    args = parser.parse_args()
+    try:
+        with _connection() as db:
+            if args.command == "resolve":
+                result = resolve_global(db, args.name, args.subscript)
+            elif args.command == "export":
+                result = export_globals(db, args.names, args.path, output_format=args.format,
+                                        records=args.records, translation=args.translation,
+                                        server_file=args.server_file)
+            else:
+                result = import_globals(db, args.path, names=args.names, input_format=args.format,
+                                        records=args.records, server_file=args.server_file)
+    except Exception as exc:
+        parser.exit(1, f"Global {args.command} failed: {exc}\n")
+    print(json.dumps(result))
 
 
 def _connection(default_port=1972, **overrides):

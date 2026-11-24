@@ -21,7 +21,7 @@ RUN chown ${ISC_PACKAGE_MGRUSER}:${ISC_PACKAGE_IRISGROUP} ${WORKDIR}
 # Copy in application source and scripts
 # ------------------------------------------------------------------------------
 
-# iristool runs externally; no application classes are needed in IRIS.
+COPY iris/iristool/GlobalTransfer.cls .
 
 # Script that will be executed by entrypoint at runtime to import source code 
 COPY iris.script .
