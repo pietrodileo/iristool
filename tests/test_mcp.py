@@ -120,7 +120,9 @@ class ConfigTests(unittest.TestCase):
                                        args=['-m', 'iristool.mcp_server', '--workspace', str(self.root)],
                                        env={'IRISTOOL_TEST_PASSWORD': 'dev-secret'}, log_file=self.root / 'stdio.log')
             async with Client(transport) as client:
-                self.assertEqual(len(await client.list_tools()), 9)
+                tools = {tool.name for tool in await client.list_tools()}
+                self.assertTrue({'iris_resolve_global', 'iris_export_globals', 'iris_import_globals'} <= tools)
+                self.assertEqual(len(tools), 12)
                 result = (await client.call_tool('iris_servers', {})).data
                 self.assertEqual(result['default_server'], 'dev')
                 self.assertNotIn('secret', json.dumps(result))
@@ -165,6 +167,7 @@ class MCPTests(unittest.IsolatedAsyncioTestCase):
         calls = [('iris_create_table', {'table': 'Data', 'columns': {'N': 'INT'}}),
                  ('iris_create_index', {'table': 'Data', 'column': 'N', 'index': 'idx'}),
                  ('iris_import_file', {'table': 'Data', 'path': 'input.csv'}),
+                 ('iris_import_globals', {'path': 'input.gof'}),
                  ('iris_import_huggingface', {'dataset': 'owner/data'}),
                  ('iris_import_kaggle', {'dataset': 'owner/data'})]
         for name, arguments in calls:
@@ -397,7 +400,7 @@ class WorkspaceDiscoveryTests(unittest.IsolatedAsyncioTestCase):
         # No home fallback in this test: neither location contains a config.
         with patch('pathlib.Path.home', return_value=self.b):
             async with Client(self.server, roots=[self.b.as_uri()]) as client:
-                self.assertEqual(len(await client.list_tools()), 9)
+                self.assertEqual(len(await client.list_tools()), 12)
                 with self.assertRaisesRegex(Exception, 'Invalid workspace configuration'):
                     await client.call_tool('iris_tables', {})
         self.factory.assert_not_called()

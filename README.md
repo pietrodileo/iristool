@@ -1050,6 +1050,45 @@ Repository files
 
 The Python wheel includes the library, metadata, and license. Docker files and durable database data are not part of the installed library.
 
+## Transfer native global files
+
+Load `iris/iristool/GlobalTransfer.cls` into each participating namespace (or
+map the compiled package there). From an IRIS Terminal in that namespace run
+`do $system.Status.DisplayError($system.OBJ.Load("/path/to/GlobalTransfer.cls","ck"))`.
+The wheel installs the class under `share/iristool/iris` in the Python environment.
+The project Docker image loads it into USER. Driver connections need native
+class execution and appropriate database permissions. The server process needs
+access to its staging directory and any server file paths you select.
+
+The CLI uses the existing `IRIS_HOST`, `IRIS_PORT`, `IRIS_NAMESPACE`,
+`IRIS_USER` and `IRIS_PASSWORD` settings. For example, run the first two
+commands with the source connection, then select the destination connection
+before running the third.
+
+```sh
+iristool-globals resolve BDA.ANAGSEDID
+iristool-globals export migration.gof BDA.ANAGSEDID BDA.ASSTD
+iristool-globals import migration.gof
+```
+
+Export accepts a list of whole global names and creates one new file.
+`--format auto` selects block when eligible and ISM when mappings require it.
+Explicit format choices are `block`, `ism`, `dtm`, `vaxdsm`, `dsm11`, and
+`msm`. Use `--records V` for variable-length records or `S` for stream, and
+`--translation` for an IRIS character translation table. Use `--server-file`
+for a path on the IRIS host. By default, the CLI transfers bytes to or from
+the client. MCP uses workspace paths and the named connection's namespace.
+
+Import merges into existing globals and can overwrite matching nodes. For a
+block file, `--names BDA.ASSTD` imports only that global. For an ISM file,
+import the whole file. Coordinate writes on the source when several globals
+must represent the same application state.
+
+The Docker integration test creates disposable source and target instances.
+Set `IRISTOOL_DOCKER_TESTS=1` and run
+`python -m unittest discover -s tests -p test_global_transfer_docker.py -v`. Set
+`IRISTOOL_DOCKER_IMAGE` to choose an installed IRIS Community image.
+
 ## Credits and license
 
 Created by **Pietro Di Leo**, based on the Python utilities from [iris_tool_and_data_manager](https://github.com/pietrodileo/iris_tool_and_data_manager).

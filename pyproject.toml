@@ -32,6 +32,7 @@ mcp = [
 ]
 
 [project.scripts]
+iristool-globals = "iristool.cli:main_globals"
 iristool-export = "iristool.cli:main_export"
 iristool-mcp = "iristool.mcp_server:main"
 iristool-kaggle = "iristool.integrations.cli:main_kaggle"
@@ -43,3 +44,6 @@ Issues = "https://github.com/pietrodileo/iristool/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.data-files]
+"share/iristool/iris" = ["iris/iristool/GlobalTransfer.cls"]
