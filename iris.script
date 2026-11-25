@@ -1,6 +1,3 @@
 zn "%SYS"
 Do ##class(Security.Users).UnExpireUserPasswords("*")
-zn "USER"
-set sc=$system.OBJ.Load("/opt/irisapp/GlobalTransfer.cls","ck")
-if $system.Status.IsError(sc) { do $system.Status.DisplayError(sc) zhalt 1 }
 halt

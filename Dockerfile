@@ -21,9 +21,7 @@ RUN chown ${ISC_PACKAGE_MGRUSER}:${ISC_PACKAGE_IRISGROUP} ${WORKDIR}
 # Copy in application source and scripts
 # ------------------------------------------------------------------------------
 
-COPY iris/iristool/GlobalTransfer.cls .
-
-# Script that will be executed by entrypoint at runtime to import source code 
+# Script that will be executed by entrypoint at runtime to configure the IRIS instance
 COPY iris.script .
 
 # Startup script wrapper (will run at *container start*)
@@ -41,7 +39,7 @@ USER ${ISC_PACKAGE_MGRUSER}
 
 # ------------------------------------------------------------------------------
 # Entrypoint: this runs your entrypoint.sh, which will start IRIS,
-# import your code into the current USER namespace, and then hand over
+# run instance setup, and then hand over
 # control to the default IRIS entrypoint.
 # Logs can be found in ${WORKDIR}/logs and in Docker Desktop either.
 # ------------------------------------------------------------------------------

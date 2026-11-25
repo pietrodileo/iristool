@@ -44,6 +44,3 @@ Issues = "https://github.com/pietrodileo/iristool/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.data-files]
-"share/iristool/iris" = ["iris/iristool/GlobalTransfer.cls"]

@@ -1,6 +1,10 @@
 """Run with IRISTOOL_DOCKER_TESTS=1 and a local IRIS Community Docker image."""
 
+import asyncio
+import json
 import os
+import sys
+from unittest.mock import patch
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 import subprocess
@@ -8,9 +12,6 @@ import time
 import uuid
 import unittest
 from tempfile import TemporaryDirectory
-
-
-SOURCE = Path(__file__).resolve().parents[1] / "iris/iristool/GlobalTransfer.cls"
 
 
 def docker(*args, **kwargs):
@@ -43,8 +44,6 @@ def instance():
                 time.sleep(1)
         else:
             raise AssertionError("IRIS failed to start")
-        docker("cp", str(SOURCE), name + ":/tmp/GlobalTransfer.cls")
-        status(name, "USER", '$system.OBJ.Load("/tmp/GlobalTransfer.cls","ck")')
         yield name
     finally:
         docker("rm", "-fv", name)
@@ -63,33 +62,11 @@ class GlobalTransferTests(unittest.TestCase):
                 status(container, "%SYS", '##class(Config.MapGlobals).Create("USER","GofSplit(1)",.p)', 'set p("Database")="IRISTEMP"')
             session(source, "USER", 'set ^GofOne="root",^GofOne(1)=$char(0,255,9731),^GofTwo("key")=$listbuild(1,"two"),^GofSplit(1)="mapped",^GofSplit(2)="default"')
             session(source, "USER", 'for i=1:1:1200 { set ^GofTwo(i)=$system.Util.CreateGUID() }')
-            native = "##class(iristool.GlobalTransfer)"
+            for container in (source, target):
+                session(container, "USER", 'if ##class(%Dictionary.CompiledClass).%ExistsId("iristool.GlobalTransfer") { throw ##class(%Exception.General).%New("Unexpected custom class") }')
 
             def check(container, ns, expression):
                 session(container, ns, f'if \'({expression}) {{ throw ##class(%Exception.General).%New("Assertion failed") }}')
-
-            def transfer(filename):
-                local = tmp_path / filename
-                docker("cp", source + ":/tmp/" + filename, str(local))
-                docker("cp", str(local), target + ":/tmp/" + filename)
-                return local
-
-            check(source, "USER", f'{native}.ExportGlobals("GofOne,GofTwo","/tmp/multiple.gof")=7')
-            status(source, "%SYS", '##class(Config.Namespaces).Create("GOFLOCAL",.p)',
-                   'set p("Globals")="IRISTEMP",p("Routines")="USER"')
-            check(source, "GOFLOCAL", '$data(^GofOne)=0')
-            check(source, "GOFLOCAL", f'{native}.ImportGlobals("/tmp/multiple.gof","GofOne")')
-            check(source, "GOFLOCAL", '(^GofOne(1)=$char(0,255,9731))&&($data(^GofTwo)=0)')
-            assert transfer("multiple.gof").read_bytes()[4:10] == b"~%GOF~"
-            check(target, "GOFDEST", f'{native}.ImportGlobals("/tmp/multiple.gof","GofTwo")')
-            check(target, "GOFDEST", '($data(^GofOne)=0)&&(^GofTwo("key")=$listbuild(1,"two"))')
-            check(target, "GOFDEST", f'{native}.ImportGlobals("/tmp/multiple.gof")')
-            check(target, "GOFDEST", '(^GofOne="root")&&(^GofOne(1)=$char(0,255,9731))')
-            check(source, "USER", f'{native}.ExportGlobals("GofSplit","/tmp/mapped.gof",0,"S")=5')
-            transfer("mapped.gof")
-            session(target, "USER", f'set rejected=0 try {{ do {native}.ImportGlobals("/tmp/mapped.gof","GofSplit") }} catch err {{ set rejected=1 }} if (\'rejected)||($data(^GofSplit)) {{ throw ##class(%Exception.General).%New("Unexpected selective import") }}')
-            check(target, "USER", f'{native}.ImportGlobals("/tmp/mapped.gof")')
-            check(target, "USER", '(^GofSplit(1)="mapped")&&(^GofSplit(2)="default")')
 
             # Exercise the same native-driver path as the CLI and MCP with a separate
             # non-admin account scoped to each disposable instance.
@@ -119,3 +96,63 @@ class GlobalTransferTests(unittest.TestCase):
                 import_globals(destination, path)
                 check(target, "GOFDEST", '(^GofOne(1)=$char(0,255,9731))&&(^GofTwo("key")=$listbuild(1,"two"))')
                 check(target, "GOFDEST", '$length(^GofTwo(1200))>30')
+
+                server_path = "/tmp/native-multiple.gof"
+                assert export_globals(origin, ["GofOne", "GofTwo"], server_path, server_file=True)["format"] == 7
+                server_copy = tmp_path / "server.gof"
+                docker("cp", source + ":" + server_path, str(server_copy))
+                self.assertEqual(server_copy.read_bytes()[4:10], b"~%GOF~")
+                status(source, "%SYS", '##class(Config.Namespaces).Create("GOFLOCAL",.p)',
+                       'set p("Globals")="IRISTEMP",p("Routines")="USER"')
+                with IRIStool(port=origin.port, namespace="GOFLOCAL", username="GofTest",
+                              password=origin.password) as local:
+                    import_globals(local, server_path, names=["GofOne"], server_file=True)
+                check(source, "GOFLOCAL", '(^GofOne(1)=$char(0,255,9731))&&($data(^GofTwo)=0)')
+                session(target, "GOFDEST", 'kill ^GofOne,^GofTwo')
+                import_globals(destination, path, names=["GofTwo"])
+                check(target, "GOFDEST", '($data(^GofOne)=0)&&(^GofTwo("key")=$listbuild(1,"two"))')
+                mapped = tmp_path / "mapped.gof"
+                assert export_globals(origin, ["GofSplit", "GofOne"], mapped, records="S")["format"] == 5
+                with self.assertRaisesRegex(ValueError, "Selective import"):
+                    import_globals(destination, mapped, names=["GofOne"], records="S")
+                check(target, "GOFDEST", '$data(^GofOne)=0')
+                import_globals(destination, mapped, records="S")
+                check(target, "GOFDEST", '(^GofSplit(1)="mapped")&&(^GofSplit(2)="default")&&(^GofOne="root")')
+
+                # Exercise the real CLI entry point against the source instance.
+                cli_file = tmp_path / "cli.gof"
+                env = dict(os.environ, IRIS_HOST="127.0.0.1", IRIS_PORT=str(origin.port),
+                           IRIS_NAMESPACE="USER", IRIS_USER="GofTest", IRIS_PASSWORD=origin.password)
+                output = subprocess.check_output(
+                    [sys.executable, "-c", "from iristool.cli import main_globals; main_globals()",
+                     "export", str(cli_file), "GofOne", "GofTwo"], env=env)
+                self.assertEqual(json.loads(output)["format"], 7)
+
+                # A mapping can change after the preflight. Let IRIS itself skip a
+                # global and verify the native output parameter prevents publication.
+                with patch("iristool.globals.resolve_global", return_value={
+                    "exists": True, "subscriptMapped": False,
+                    "destination": "USER", "defaultDestination": "USER",
+                }), self.assertRaisesRegex(RuntimeError, "skipped"):
+                    export_globals(origin, ["GofOne", "GofSplit"], tmp_path / "skipped.gof")
+                self.assertFalse((tmp_path / "skipped.gof").exists())
+
+                if os.getenv("IRISTOOL_DOCKER_MCP") == "1":
+                    from fastmcp import Client
+                    from iristool.mcp_server import create_server
+                    config = tmp_path / ".iristool.toml"
+                    config.write_text(f'[instance.target]\nhost="127.0.0.1"\nport={destination.port}\n'
+                                      f'namespace="GOFDEST"\nusername="GofTest"\npassword="{destination.password}"\n')
+                    session(target, "GOFDEST", 'kill ^GofOne,^GofTwo')
+
+                    async def exercise_mcp():
+                        async with Client(create_server(workspace=tmp_path)) as client:
+                            await client.call_tool("iris_import_globals", {"server": "target", "path": "cli.gof",
+                                                                          "names": ["GofTwo"]})
+                            info = await client.call_tool("iris_resolve_global", {"name": "GofTwo"})
+                            self.assertTrue(info.data["exists"])
+                            await client.call_tool("iris_export_globals", {"names": ["GofTwo"], "path": "mcp.gof"})
+
+                    asyncio.run(exercise_mcp())
+                    check(target, "GOFDEST", '($data(^GofOne)=0)&&(^GofTwo("key")=$listbuild(1,"two"))')
+                    self.assertEqual((tmp_path / "mcp.gof").read_bytes()[4:10], b"~%GOF~")

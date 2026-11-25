@@ -1052,12 +1052,10 @@ The Python wheel includes the library, metadata, and license. Docker files and d
 
 ## Transfer native global files
 
-Load `iris/iristool/GlobalTransfer.cls` into each participating namespace (or
-map the compiled package there). From an IRIS Terminal in that namespace run
-`do $system.Status.DisplayError($system.OBJ.Load("/path/to/GlobalTransfer.cls","ck"))`.
-The wheel installs the class under `share/iristool/iris` in the Python environment.
-The project Docker image loads it into USER. Driver connections need native
-class execution and appropriate database permissions. The server process needs
+Install iristool on the client. The CLI and MCP call the built-in
+`%Library.Global` and `%SYS.Namespace` APIs through the Python Native SDK.
+Each connection needs native class execution and appropriate database
+permissions for its namespace and mapped data. The server process needs
 access to its staging directory and any server file paths you select.
 
 The CLI uses the existing `IRIS_HOST`, `IRIS_PORT`, `IRIS_NAMESPACE`,
@@ -1084,7 +1082,9 @@ block file, `--names BDA.ASSTD` imports only that global. For an ISM file,
 import the whole file. Coordinate writes on the source when several globals
 must represent the same application state.
 
-The Docker integration test creates disposable source and target instances.
+The Docker integration test creates clean source and target instances and uses a
+non-admin driver account. Set `IRISTOOL_DOCKER_MCP=1` with the MCP extra
+installed to exercise the MCP tools against the target as well.
 Set `IRISTOOL_DOCKER_TESTS=1` and run
 `python -m unittest discover -s tests -p test_global_transfer_docker.py -v`. Set
 `IRISTOOL_DOCKER_IMAGE` to choose an installed IRIS Community image.
