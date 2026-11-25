@@ -1,12 +1,12 @@
 # iristool
 
-![Version 0.7.0](https://img.shields.io/badge/version-0.7.0-blue?style=flat) ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat) ![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat) ![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
+![Version 0.8.0](https://img.shields.io/badge/version-0.8.0-blue?style=flat) ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat) ![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat) ![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
 
 **iristool** is a small Python library for moving data between pandas and InterSystems IRIS. Create a SQL table from a DataFrame, run parameterized queries, and manage rows, tables, views, and indexes through one connection object.
 
 Python runs in your own environment and connects to an existing IRIS server through the official `intersystems-irispython` DB API. Install the library on your laptop, in a notebook, or in a Python application; no Python packages need to be installed inside IRIS.
 
-[Installation](#installation) · [Quick start](#quick-start) · [Dataset imports](#dataset-integrations) · [CLI](#import-datasets-from-the-command-line-cli) · [Export](#export-a-table) · [Examples](#examples) · [API](#api-reference) · [Testing](#development-and-testing)
+[Installation](#installation) · [Quick start](#quick-start) · [Dataset imports](#dataset-integrations) · [CLI](#import-datasets-from-the-command-line-cli) · [Export](#export-a-table) · [Native global files (.gof)](#transfer-native-global-files) · [Examples](#examples) · [API](#api-reference) · [Testing](#development-and-testing)
 
 [MCP server](docs/mcp.md) · [Agent skill](#agent-skill) · [Authentication](docs/authentication.md) · [Adding data sources](docs/DEV.md) · [Publishing](docs/publish.md)
 
@@ -21,6 +21,7 @@ What iristool does
 - **DataFrame to SQL:** create a table, infer column types, and insert rows in batches.
 - **SQL to DataFrame:** retrieve query results with optional bound parameters.
 - **Excel sheets:** import a sheet by name or index; export tables/subsets to named sheets in the same XLSX from Python, MCP or the export CLI.
+- **Native IRIS globals:** resolve mappings and migrate multiple globals in one GOF file with the CLI or MCP.
 - **Table export:** save a table as CSV, XLSX, or JSON through pandas.
 - **Data handling:** normalize column names and convert pandas missing values to SQL `NULL`.
 - **Import control:** choose whether to fail, skip, or replace an existing table; supply explicit types, a primary key, constraints, and indexes.
@@ -1052,7 +1053,7 @@ The Python wheel includes the library, metadata, and license. Docker files and d
 
 ## Transfer native global files
 
-Install iristool on the client. The CLI and MCP call the built-in
+Starting with 0.8.0, install iristool on the client only. When upgrading from 0.7.0, skip the ObjectScript helper installation. Existing copies of the helper can remain installed and are unused by 0.8.0. The CLI and MCP call the built-in
 `%Library.Global` and `%SYS.Namespace` APIs through the Python Native SDK.
 Each connection needs native class execution and appropriate database
 permissions for its namespace and mapped data. The server process needs
@@ -1068,6 +1069,8 @@ iristool-globals resolve BDA.ANAGSEDID
 iristool-globals export migration.gof BDA.ANAGSEDID BDA.ASSTD
 iristool-globals import migration.gof
 ```
+
+For a storage reference such as `^|"NPRI_MFDDC_TEST"|BDA.ANAGSEDID`, connect to namespace `NPRI_MFDDC_TEST` and resolve `BDA.ANAGSEDID` there. The namespace selects the mapping context. Root and subscript mappings determine which physical database holds a given node. Check the destination mappings on the target connection before import.
 
 Export accepts a list of whole global names and creates one new file.
 `--format auto` selects block when eligible and ISM when mappings require it.

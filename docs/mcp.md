@@ -506,7 +506,7 @@ discovery vary by client.
 | `iris_export_globals` | Export a selection of whole globals together to one new workspace GOF file |
 | `iris_import_globals` | Merge a workspace GOF into an explicit writable connection, optionally selecting globals from a block file |
 
-The global tools call built-in IRIS system classes through the Python Native SDK.
+See the [native global migration guide](../README.md#transfer-native-global-files) for GOF formats, mapping resolution, and the 0.7 upgrade path. The global tools call built-in IRIS system classes through the Python Native SDK.
 Grant the connection native class execution and the required database access.
 IRIS also needs a writable temporary directory for workspace file transfers.
 
