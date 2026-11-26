@@ -1,4 +1,8 @@
-# iristool
+<h1 align="center">
+  <img src="assets/branding/logo-1600.png" alt="iristool" width="640">
+</h1>
+
+<p align="center">Python tools for InterSystems IRIS</p>
 
 ![Version 0.8.0](https://img.shields.io/badge/version-0.8.0-blue?style=flat) ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat) ![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat) ![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
 
@@ -9,6 +13,8 @@ Python runs in your own environment and connects to an existing IRIS server thro
 [Installation](#installation) · [Quick start](#quick-start) · [Dataset imports](#dataset-integrations) · [CLI](#import-datasets-from-the-command-line-cli) · [Export](#export-a-table) · [Native global files (.gof)](#transfer-native-global-files) · [Examples](#examples) · [API](#api-reference) · [Testing](#development-and-testing)
 
 [MCP server](docs/mcp.md) · [Agent skill](#agent-skill) · [Authentication](docs/authentication.md) · [Adding data sources](docs/DEV.md) · [Publishing](docs/publish.md)
+
+[Logo downloads and usage](assets/branding/README.md): full logo, symbol, and wordmark in transparent PNG format for documentation and presentations.
 
 ---
 
