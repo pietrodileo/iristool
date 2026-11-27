@@ -123,6 +123,19 @@ class IRIStool:
             raise ValueError("Column names collide after normalization.")
         return names
 
+    @staticmethod
+    def _index_columns(column_name: str | None, columns: list[str] | None) -> list[str]:
+        if (column_name is None) == (columns is None):
+            raise ValueError("Specify exactly one of column_name/column or columns.")
+        names = [column_name] if column_name is not None else columns
+        if not isinstance(names, list) or not names:
+            raise ValueError("columns must be a non-empty list of column names.")
+        for name in names:
+            IRIStool._identifier(name)
+        if len({name.casefold() for name in names}) != len(names):
+            raise ValueError("Index columns must not contain duplicates.")
+        return names
+
     def validate_table_name(self, table_name: str, table_schema: str = None) -> str:
         """Validate separate table/schema identifiers and return the qualified name."""
         self._identifier(table_name)
@@ -532,10 +545,11 @@ class IRIStool:
 
                 # Indexes
                 cursor.execute(f"""
-                    SELECT index_name, column_name, PRIMARY_KEY, NON_UNIQUE
+                    SELECT index_name, column_name, PRIMARY_KEY, NON_UNIQUE, ORDINAL_POSITION
                     FROM INFORMATION_SCHEMA.INDEXES
                     WHERE table_name = ?
                     AND table_schema = ?
+                    ORDER BY index_name, ORDINAL_POSITION
                 """,
                 [table_name, table_schema])
                 indexes = cursor.fetchall()
@@ -681,7 +695,8 @@ class IRIStool:
             exist_ok (bool, optional): If True, check if the table already exists and skip creation or drop it if it does. Defaults to False.
             drop_if_exists (bool, optional): If True and if exist_ok is True, drop the table if it already exists. Defaults to False.
             drop_related_views (bool, optional): If True, drop related views if they exist. Defaults to False.
-            indices (list[dict], optional): A list of index definitions. Defaults to None.
+            indices (list[dict], optional): Index definitions using either column or an
+                ordered columns list, plus optional name and type. Defaults to None.
             batch_size (int): Rows submitted per batch. Defaults to 1000.
 
         Raises:
@@ -722,6 +737,30 @@ class IRIStool:
             if primary_key not in columns:
                 raise ValueError("primary_key must name a DataFrame column.")
             primary_key = self._identifier(primary_key)
+        prepared_indices = []
+        for idx in indices or []:
+            column = idx.get("column")
+            index_columns = idx.get("columns")
+            if (column is None) == (index_columns is None):
+                raise ValueError("Specify exactly one of column or columns for each index.")
+            if column is not None:
+                if not isinstance(column, str):
+                    raise ValueError("column must be a column name.")
+                names = self._column_names([column])
+            else:
+                if not isinstance(index_columns, list) or not all(isinstance(c, str) for c in index_columns):
+                    raise ValueError("columns must be a non-empty list of column names.")
+                names = self._column_names(index_columns)
+            if not set(names).issubset(columns):
+                raise ValueError("Index columns must name DataFrame columns.")
+            idx_type = idx.get("type", "index").lower()
+            if idx_type not in {"", "index", "unique", "bitmap", "bitslice", "columnar", "hnsw"}:
+                raise ValueError("Unsupported index type.")
+            if idx_type in {"bitslice", "columnar", "hnsw"} and len(names) != 1:
+                raise ValueError(f"{idx_type} indexes require exactly one column.")
+            idx_name = idx.get("name", f"{table_name}_{'_'.join(names)}_{idx_type}")
+            self._identifier(idx_name)
+            prepared_indices.append((idx, names, idx_type, idx_name))
         if exist_ok and self.table_exists(table_name, table_schema):
             if drop_if_exists:
                 self.drop_table(table_name, table_schema, drop_related_views=drop_related_views)
@@ -745,20 +784,13 @@ class IRIStool:
         )
 
         # add indices
-        if indices:
-            for idx in indices:
-                col = idx["column"]
-                col = col.strip()
-                col = col.replace(" ","_")
-                col = col.replace(".","_")
-                idx_type = idx.get("type", "index")
-                idx_name = idx.get("name", f"{table_name}_{col}_{idx_type}")
-
+        if prepared_indices:
+            for idx, names, idx_type, idx_name in prepared_indices:
                 if idx_type == "hnsw":
                     params = idx.get("params", {})
                     self.create_hnsw_index(
                         table_name=table_name,
-                        column_name=col,
+                        column_name=names[0],
                         index_name=idx_name,
                         distance=params.get("distance", "Cosine"),
                         M=params.get("M"),
@@ -769,8 +801,8 @@ class IRIStool:
                     self.create_index(
                         index_name=idx_name,
                         table_name=table_name,
-                        column_name=col,
-                        index_type=idx.get("type", "index"),
+                        columns=names,
+                        index_type=idx_type,
                         table_schema=table_schema
                     )
 
@@ -886,32 +918,36 @@ class IRIStool:
         cursor.close()
         return exists
 
-    def create_index(self, index_name: str, table_name: str, column_name: str, index_type: str = "index", table_schema: str = "SQLUser") -> None:
+    def create_index(self, index_name: str, table_name: str, column_name: str | None = None, index_type: str = "index", table_schema: str = "SQLUser", *, columns: list[str] | None = None) -> None:
         """
-        Create an index on a given table and column.
+        Create one index on a column or an ordered list of columns.
 
         Args:
             index_name (str): The name of the index.
             table_name (str): The table to add the index to.
-            column_name (str): The column to index.
+            column_name (str): The single column to index; omit when using columns.
+            columns (list[str]): Ordered index columns, mutually exclusive with column_name.
             index_type (str): Type of index (e.g., 'INDEX', 'COLUMNAR', 'BITSLICE', 'BITMAP', ''). Default: 'index'.
 
         Example:
             conn.create_index("my_index", "my_table", "my_column")
+            conn.create_index("my_pair", "my_table", columns=["FirstField", "SecondField"])
         """
         full_name = self.validate_table_name(table_name, table_schema)
-        if self.index_exists(table_name, index_name, table_schema):
-            raise ValueError(f"Index {index_name} already exists on {full_name}.")
-
         index_type = index_type.lower()
         if index_type not in {"", "index", "unique", "bitmap", "bitslice", "columnar"}:
             raise ValueError("Unsupported index type.")
-        index_name = self._identifier(index_name)
-        column_name = self._identifier(column_name)
+        quoted_index_name = self._identifier(index_name)
+        names = self._index_columns(column_name, columns)
+        if index_type in {"bitslice", "columnar"} and len(names) != 1:
+            raise ValueError(f"{index_type} indexes require exactly one column.")
+        column_name = ", ".join(self._identifier(name) for name in names)
+        if self.index_exists(table_name, index_name, table_schema):
+            raise ValueError(f"Index {index_name} already exists on {full_name}.")
         if index_type != "" and index_type != "index":
-            sql = f"CREATE {index_type} INDEX {index_name} ON {full_name}({column_name})"
+            sql = f"CREATE {index_type} INDEX {quoted_index_name} ON {full_name}({column_name})"
         else:
-            sql = f"CREATE INDEX {index_name} ON {full_name}({column_name})"
+            sql = f"CREATE INDEX {quoted_index_name} ON {full_name}({column_name})"
 
         cursor = self.conn.cursor()
         try:

@@ -120,6 +120,25 @@ class IRISIntegrationTests(unittest.TestCase):
             self.db.insert_many(table, [{"Code": 1}, {"Code": 1}])
         self.assertEqual(self.count(table), 0)
 
+    def test_composite_indexes_preserve_order_and_unique_pairs(self):
+        table = self.table()
+        self.db.df_to_table(pd.DataFrame({'FirstField': [1, 1, 2], 'SecondField': [1, 2, 1]}),
+                            table, indices=[{'name': 'UniquePair', 'type': 'unique',
+                                             'columns': ['SecondField', 'FirstField']}])
+        self.db.create_index('OrdinaryPair', table, columns=['FirstField', 'SecondField'])
+        self.db.create_index('BitmapPair', table, columns=['FirstField', 'SecondField'], index_type='bitmap')
+        metadata = self.db.describe_table(table)['indexes']
+        for name, expected in [('UniquePair', ['SecondField', 'FirstField']),
+                               ('OrdinaryPair', ['FirstField', 'SecondField']),
+                               ('BitmapPair', ['FirstField', 'SecondField'])]:
+            rows = [{k.upper(): v for k, v in row.items()} for row in metadata]
+            rows = [row for row in rows if row['INDEX_NAME'] == name]
+            self.assertEqual([row['COLUMN_NAME'] for row in rows], expected)
+            self.assertEqual([row['ORDINAL_POSITION'] for row in rows], [1, 2])
+        with self.assertRaises(Exception):
+            self.db.insert_many(table, [{'FirstField': 1, 'SecondField': 1}])
+        self.assertEqual(self.count(table), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

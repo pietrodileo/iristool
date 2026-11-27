@@ -206,13 +206,23 @@ def create_server(config=None, *, factory=IRIStool, workspace=None, filename=Non
         return await fleet.call(server, True, operation)
 
     @mcp.tool(annotations={"readOnlyHint": False, "destructiveHint": False})
-    async def iris_create_index(table: str, column: str, index: str,
+    async def iris_create_index(table: str, column: str | None = None, *, index: str,
                                index_type: str = "index", server: str | None = None,
-                               schema: str = "SQLUser") -> dict:
-        """Create an ordinary, unique, bitmap, bitslice or columnar index after loading data."""
+                               schema: str = "SQLUser", columns: list[str] | None = None) -> dict:
+        """Create one ordinary, unique, bitmap, bitslice or columnar index after loading.
+
+        Specify exactly one of column (single field) or columns (ordered, non-empty
+        list). Use index_type='index' for an ordinary index. Bitslice and columnar
+        require one field.
+        """
         fleet, config = await resolve()
         def operation(db):
-            db.create_index(index, table, column, index_type=index_type, table_schema=schema)
+            IRIStool._identifier(index)
+            IRIStool._index_columns(column, columns)
+            if columns is None:
+                db.create_index(index, table, column, index_type=index_type, table_schema=schema)
+            else:
+                db.create_index(index, table, columns=columns, index_type=index_type, table_schema=schema)
             return {"table": f"{schema}.{table}", "index": index, "created": True}
         return await fleet.call(server, True, operation)
 
