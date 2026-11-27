@@ -592,6 +592,27 @@ Use `iris_create_index` to add requested secondary indexes after loading.
 Creating a unique index can fail on duplicate values without undoing the import.
 The Python `df_to_table(indices=...)` API creates indexes before inserting rows.
 
+For a composite index, call `iris_create_index` with an ordered `columns` list:
+
+```json
+{
+  "table": "Sales",
+  "index": "CustomerOrder",
+  "columns": ["Customer", "Order_Number"],
+  "index_type": "unique"
+}
+```
+
+This creates **one index** with Customer first and Order_Number second. For a
+unique index, only the combination must be unique. Existing calls using
+`"column": "Customer"` remain valid. Specify exactly one of `column` or `columns`;
+empty lists, duplicate fields and comma-separated strings are rejected. Use
+`"index"` (the default) for an ordinary index, not `"ordinary"`. Ordinary, unique
+and bitmap indexes support multiple fields; bitslice and columnar require one
+field. The database enforces its remaining type/version restrictions.
+`iris_describe_table` includes `ORDINAL_POSITION` for each index field and returns
+index metadata ordered by index name and field position.
+
 The Python methods `db.import_file()` and `db.export_table()` share the MCP
 transfer functions. Core exports stream by default; custom pandas writer
 options load the whole result into a DataFrame.

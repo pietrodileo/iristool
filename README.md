@@ -4,7 +4,7 @@
 
 <p align="center">Python tools for InterSystems IRIS</p>
 
-![Version 0.8.0](https://img.shields.io/badge/version-0.8.0-blue?style=flat) ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat) ![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat) ![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
+![Version 0.9.0](https://img.shields.io/badge/version-0.9.0-blue?style=flat) ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat) ![InterSystems IRIS](https://img.shields.io/badge/InterSystems-IRIS-00a99d?style=flat) ![MIT License](https://img.shields.io/badge/license-MIT-2ea043?style=flat)
 
 **iristool** is a small Python library for moving data between pandas and InterSystems IRIS. Create a SQL table from a DataFrame, run parameterized queries, and manage rows, tables, views, and indexes through one connection object.
 
@@ -793,6 +793,39 @@ with IRIStool(**connection) as db:
 ```
 
 When supplied, `column_types` must cover **every DataFrame column**. Its keys can use the original or normalized names. Use explicit SQL declarations when your schema needs fixed lengths, decimal precision, or other types that inference cannot decide for you.
+
+### Single-column and composite indexes
+
+Create one index over an ordered list of columns with `columns`:
+
+```python
+with IRIStool(**connection) as db:
+    db.create_index("CustomerOrder", "Sales", columns=["Customer", "Order_Number"])
+    db.create_index("UniqueCustomerOrder", "Sales",
+                    columns=["Customer", "Order_Number"], index_type="unique")
+```
+
+The existing `db.create_index("CustomerIndex", "Sales", "Customer")` call remains
+supported. Specify exactly one of `column_name` or `columns`. Lists must be
+non-empty, contain distinct valid identifiers, and preserve the requested order.
+Comma-separated strings are not accepted. Use `index_type="index"` (the default)
+for an ordinary index; `"ordinary"` is not a type name. Ordinary, unique and bitmap
+indexes support multiple columns; bitslice and columnar indexes require one
+column. Other database-specific restrictions still apply.
+
+For indexes created before a DataFrame import, use the same ordered list in
+`indices`; names follow the DataFrame column normalization:
+
+```python
+db.df_to_table(sales, "SalesWithIndexes", indices=[
+    {"name": "CustomerOrder", "columns": ["Customer", "Order Number"], "type": "unique"},
+])
+```
+
+A composite unique index requires the combination to be unique; each individual
+column can contain duplicates. `describe_table()` returns one index metadata row
+per field, including `ORDINAL_POSITION`, ordered by index name and position.
+The MCP `iris_create_index` tool also accepts `columns`; see [MCP examples](docs/mcp.md).
 
 ### Query with parameters
 

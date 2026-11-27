@@ -106,7 +106,8 @@ class TransferIntegrationTests(unittest.TestCase):
         config.write_text('[instance.dev]\nhost = "' + self.db.host + '"\nport = ' + str(self.db.port) +
                           '\nnamespace = "' + self.db.namespace + '"\nusername = "' + self.db.username +
                           '"\npassword_env = "IRISTOOL_MCP_LIVE_PASSWORD"\n')
-        (self.root / 'source.json').write_text('[{"Number": 9007199254740993}, {"Number": null}]')
+        (self.root / 'source.json').write_text(
+            '[{"Number": 9007199254740993, "GroupNumber": 1}, {"Number": null, "GroupNumber": 2}]')
         async def check():
             transport = StdioTransport(command=sys.executable,
                                        args=['-m', 'iristool.mcp_server', '--workspace', str(self.root)],
@@ -118,10 +119,20 @@ class TransferIntegrationTests(unittest.TestCase):
                 self.assertEqual(result['rows'], 2)
                 await client.call_tool('iris_create_index', {
                     'table': self.table, 'column': 'Number', 'index': self.table + '_idx'})
+                pair = self.table + '_pair'
+                await client.call_tool('iris_create_index', {
+                    'table': self.table, 'columns': ['GroupNumber', 'Number'],
+                    'index': pair, 'index_type': 'unique'})
                 metadata = (await client.call_tool('iris_describe_table', {'table': self.table})).data
                 self.assertIn('metadata', metadata)
+                rows = [{key.upper(): value for key, value in row.items()}
+                        for row in metadata['metadata']['indexes']]
+                rows = [row for row in rows if row['INDEX_NAME'] == pair]
+                self.assertEqual([row['COLUMN_NAME'] for row in rows], ['GroupNumber', 'Number'])
+                self.assertEqual([row['ORDINAL_POSITION'] for row in rows], [1, 2])
                 await client.call_tool('iris_export_table', {'table': self.table, 'path': 'out.json', 'chunk_size': 1})
-                self.assertIn({'Number': 9007199254740993}, json.loads((self.root / 'out.json').read_text()))
+                self.assertIn({'Number': 9007199254740993, 'GroupNumber': 1},
+                              json.loads((self.root / 'out.json').read_text()))
                 subset = (await client.call_tool('iris_export_table', {
                     'table': self.table, 'path': 'subset.json', 'chunk_size': 1,
                     'columns': ['Number'], 'filters': [{'column': 'Number', 'op': 'IS NOT NULL'}],

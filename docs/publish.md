@@ -34,7 +34,7 @@ Run from this repository after the changes have been reviewed and merged into
 the branch you release from:
 
 ```bash
-uv version 0.8.0   # also updates uv.lock
+uv version 0.9.0   # also updates uv.lock
 uv run --locked --all-extras python -m unittest discover -s tests -v -b
 ```
 
@@ -46,11 +46,11 @@ and those docs:
 
 ```bash
 git add pyproject.toml uv.lock README.md docs/publish.md
-git commit -m "Release 0.8.0"
+git commit -m "Release 0.9.0"
 git push
 # This tag push starts the PyPI upload automatically:
-git tag -a v0.8.0 -m "iristool 0.8.0"
-git push origin v0.8.0
+git tag -a v0.9.0 -m "iristool 0.9.0"
+git push origin v0.9.0
 ```
 
 Use your actual version in every command. A mismatched tag fails before
@@ -67,7 +67,7 @@ Use a fresh environment, separate from local source development:
 ```bash
 uv venv .venv-pypi
 source .venv-pypi/bin/activate
-uv pip install 'iristool[integrations,excel]==0.8.0'
+uv pip install 'iristool[integrations,excel]==0.9.0'
 uv pip show iristool
 iristool-kaggle --help
 iristool-hf --help
@@ -75,7 +75,7 @@ iristool-export --help
 iristool-globals --help
 ```
 
-Replace 0.8.0 with the version you actually published. Load `.env` as described
+Replace 0.9.0 with the version you actually published. Load `.env` as described
 in the README to test imports/exports against IRIS. Also test a fresh base-only
 install: it must not install KaggleHub, datasets, or openpyxl.
 

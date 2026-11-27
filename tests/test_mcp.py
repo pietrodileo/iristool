@@ -275,6 +275,21 @@ class MCPTests(unittest.IsolatedAsyncioTestCase):
             await self.client.call_tool('iris_tables', {})
         self.assertNotIn('secret', str(error.exception))
 
+    async def test_composite_index_dispatch_and_schema(self):
+        tools = {tool.name: tool for tool in await self.client.list_tools()}
+        schema = tools['iris_create_index'].inputSchema
+        self.assertIn('index', schema['required'])
+        self.assertNotIn('column', schema['required'])
+        await self.client.call_tool('iris_create_index', {
+            'table': 'Data', 'index': 'Pair', 'columns': ['B', 'A'], 'index_type': 'unique'})
+        self.db.create_index.assert_called_once_with(
+            'Pair', 'Data', columns=['B', 'A'], index_type='unique', table_schema='SQLUser')
+        for args in ({}, {'columns': []}, {'column': 'A', 'columns': ['B']},
+                     {'columns': ['A', 'a']}, {'column': 'A,B'}):
+            with self.subTest(args=args), self.assertRaises(Exception):
+                await self.client.call_tool('iris_create_index', {'table': 'Data', 'index': 'Bad', **args})
+        self.db.create_index.assert_called_once()
+
     async def test_thread_affinity_and_shutdown(self):
         threads = []
         def factory(**kwargs):

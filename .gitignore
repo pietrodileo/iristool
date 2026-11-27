@@ -7,6 +7,6 @@ dist/
 .env
 storage/
 .DS_Store
-.venv-pypi/
+.venv-*/
 
 .iristool.toml
